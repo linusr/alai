@@ -53,6 +53,14 @@ testflight: generate
         -exportPath build/export -allowProvisioningUpdates
     echo "Uploaded build $build. It shows in TestFlight once App Store Connect finishes processing."
 
+# Push the store listing in store/ to App Store Connect; with a build number, also attach that build
+listing build="":
+    uv run -q store/asc.py listing {{ build }}
+
+# Show the App Store Connect app, versions and recent builds
+store-status:
+    uv run -q store/asc.py status
+
 # Build for the iOS simulator
 build: generate
     xcodebuild -project Alai.xcodeproj -scheme Alai -destination 'generic/platform=iOS Simulator' \

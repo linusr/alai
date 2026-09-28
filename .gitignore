@@ -6,3 +6,4 @@ DerivedData/
 build/
 *.xcresult
 .DS_Store
+__pycache__/
