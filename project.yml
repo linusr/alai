@@ -13,7 +13,7 @@ settings:
     DEVELOPMENT_TEAM: 2NDDPG5773
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "0.1.0"
+    MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     APP_BUNDLE_ID: me.4vr.alai
     APP_GROUP: group.me.4vr.alai
