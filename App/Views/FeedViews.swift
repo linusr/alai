@@ -2,35 +2,16 @@ import SwiftUI
 import SwiftData
 import NtfyKit
 
-enum FeedMode: String {
-    case list, day
-}
-
-/// Messages as a day-grouped list or as a calendar day, with a toolbar toggle shared by every feed.
+/// A topic's or all topics' messages as a day-grouped list; the Calendar tab holds the day view.
 struct MessageFeed<Empty: View>: View {
     let messages: [StoredMessage]
     let showsTopic: Bool
     @ViewBuilder let empty: () -> Empty
-    @AppStorage("feedMode") private var mode = FeedMode.list
 
     var body: some View {
-        Group {
-            switch mode {
-            case .list:
-                ListFeed(messages: messages, showsTopic: showsTopic)
-                    .overlay { if messages.isEmpty { empty() } }
-            case .day:
-                DayFeed(messages: messages, showsTopic: showsTopic)
-            }
-        }
-        .background(Color(.systemGroupedBackground))
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(mode == .list ? "Day View" : "List View", systemImage: mode == .list ? "calendar.day.timeline.left" : "list.bullet") {
-                    withAnimation { mode = mode == .list ? .day : .list }
-                }
-            }
-        }
+        ListFeed(messages: messages, showsTopic: showsTopic)
+            .overlay { if messages.isEmpty { empty() } }
+            .background(Color(.systemGroupedBackground))
     }
 }
 
