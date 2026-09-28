@@ -7,7 +7,6 @@ struct TopicListView: View {
     @Environment(AppModel.self) private var model
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @State private var isAddingTopic = false
-    @State private var isShowingSettings = false
     @State private var isBrowsing = false
     @Environment(ServerDirectory.self) private var servers
     @State private var pendingUnsubscribe: Subscription?
@@ -19,16 +18,8 @@ struct TopicListView: View {
     var body: some View {
         topicList
             .navigationTitle("Topics")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Add Topic", systemImage: "plus") { isAddingTopic = true }
-                }
-            }
+            .homeActions()
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
-            .sheet(isPresented: $isShowingSettings) { SettingsView() }
             .sheet(isPresented: $isBrowsing) {
                 if let server = servers.defaultServer {
                     NavigationStack {
@@ -180,5 +171,31 @@ private struct TopicRow: View {
         let body = NotificationFormatter.bodyText(message)
         guard let title = message.title, !title.isEmpty else { return body }
         return "\(title): \(body)"
+    }
+}
+
+extension View {
+    /// Settings and Add Topic in the navigation bar, shared by the home tabs.
+    func homeActions() -> some View {
+        modifier(HomeActions())
+    }
+}
+
+private struct HomeActions: ViewModifier {
+    @State private var isAddingTopic = false
+    @State private var isShowingSettings = false
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Add Topic", systemImage: "plus") { isAddingTopic = true }
+                }
+            }
+            .sheet(isPresented: $isAddingTopic) { AddTopicView() }
+            .sheet(isPresented: $isShowingSettings) { SettingsView() }
     }
 }

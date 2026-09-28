@@ -35,6 +35,7 @@ struct RootView: View {
                         CalendarHome()
                             .navigationTitle("Calendar")
                             .navigationBarTitleDisplayMode(.inline)
+                            .homeActions()
                     }
                 }
                 Tab(value: HomeTab.search, role: .search) {
