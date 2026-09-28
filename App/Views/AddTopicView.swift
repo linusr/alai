@@ -23,6 +23,15 @@ struct AddTopicView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let server {
+                    Section {
+                        NavigationLink {
+                            BrowseTopicsView(server: server)
+                        } label: {
+                            Label("Browse Existing Topics", systemImage: "list.bullet.rectangle")
+                        }
+                    }
+                }
                 Section {
                     HStack {
                         TextField("Topic name", text: $topic)
@@ -61,15 +70,6 @@ struct AddTopicView: View {
                 Section("Appearance") {
                     TextField("Display name (optional)", text: $displayName)
                     TopicAppearancePicker(symbol: $symbol, tint: $tint)
-                }
-                if let server {
-                    Section {
-                        NavigationLink {
-                            BrowseTopicsView(server: server)
-                        } label: {
-                            Label("Browse Existing Topics", systemImage: "list.bullet.rectangle")
-                        }
-                    }
                 }
                 if let error {
                     Section { Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.red) }

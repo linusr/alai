@@ -108,15 +108,22 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
     @Test func accountDecodes() async throws {
         StubProtocol.handler = { _ in (200, Data("""
         {"username":"ben","role":"admin","sync_topic":"st","subscriptions":[{"base_url":"https://ntfy.example.com","topic":"backups","display_name":null}],
-         "reservations":[{"topic":"alerts","everyone":"deny-all"}],"tokens":[{"token":"tk_abc","label":"garage","last_access":1727200000,"expires":0}]}
+         "reservations":[{"topic":"alerts","everyone":"deny-all"}],"access":[{"topic":"garage","permission":"read-only"}],"tokens":[{"token":"tk_abc","label":"garage","last_access":1727200000,"expires":0}]}
         """.utf8)) }
         let account = try await client.account()
         #expect(account.isAdmin)
         #expect(account.reservations == [Account.Reservation(topic: "alerts", everyone: .denyAll)])
         #expect(account.subscriptions?.first?.topic == "backups")
+        #expect(account.access == [ServerUser.Grant(topic: "garage", permission: .readOnly)])
         #expect(account.tokens?.first?.label == "garage")
         #expect(account.tokens?.first?.expiryDate == nil)
         #expect(account.tokens?.first?.lastAccessDate != nil)
+    }
+
+    @Test func activeTopicsDecodes() async throws {
+        StubProtocol.handler = { _ in (200, Data(#"{"topics":["alerts","weather"]}"#.utf8)) }
+        #expect(try await client.activeTopics() == ["alerts", "weather"])
+        #expect(StubProtocol.requests.first?.url?.path() == "/v1/topics")
     }
 
     @Test func reserveSendsAccessLevel() async throws {

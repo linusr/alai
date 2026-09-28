@@ -124,6 +124,12 @@ public struct NtfyClient: Sendable {
         try await JSONDecoder().decode([ServerUser].self, from: send(makeRequest(url: baseURL.appending(path: "v1/users"), method: "GET")))
     }
 
+    /// Topics that currently have cached messages. Requires an admin account on an Alai server.
+    public func activeTopics() async throws -> [String] {
+        struct Response: Decodable { let topics: [String] }
+        return try await JSONDecoder().decode(Response.self, from: send(makeRequest(url: baseURL.appending(path: "v1/topics"), method: "GET"))).topics
+    }
+
     /// Reserves a topic for the signed-in user; `everyone` is the access left to all other users.
     public func reserve(topic: String, everyone: TopicAccess) async throws {
         struct Body: Encodable { let topic: String; let everyone: TopicAccess }

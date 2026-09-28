@@ -2,8 +2,9 @@ import SwiftUI
 import SwiftData
 import NtfyKit
 
-/// Topics the signed-in account can see on a server. ntfy has no API that lists every topic, so this
-/// shows reservations, subscriptions synced from the web app and, for admins, every user's access grants.
+/// Topics the signed-in account can see on a server. ntfy has no registry of topics, so this shows
+/// reservations, the account's access grants, subscriptions synced from the web app and, for admins,
+/// every user's grants and the topics with recent messages.
 struct BrowseTopicsView: View {
     let server: URL
     @Environment(AppModel.self) private var model
@@ -11,6 +12,7 @@ struct BrowseTopicsView: View {
     @Query private var subscriptions: [Subscription]
     @State private var account: Account?
     @State private var users: [ServerUser] = []
+    @State private var activeTopics: [String] = []
     @State private var error: String?
     @State private var isLoading = true
 
@@ -32,15 +34,23 @@ struct BrowseTopicsView: View {
                 topicSection("Synced from Web App", footer: nil, topics: (account.subscriptions ?? [])
                     .filter { ServerURL.normalize($0.baseURL) == server }
                     .map { BrowsedTopic(name: $0.topic, detail: $0.displayName) })
-                ForEach(users, id: \.username) { user in
-                    topicSection(sectionTitle(user, account: account), footer: nil, topics: browsableGrants(user, account: account))
+                if account.isAdmin {
+                    ForEach(users, id: \.username) { user in
+                        topicSection(sectionTitle(user, account: account), footer: nil, topics: browsableGrants(user.grants, account: account))
+                    }
+                    topicSection("Active on This Server", footer: "Topics with messages the server still holds.", topics: activeTopics.map {
+                        BrowsedTopic(name: $0, detail: nil)
+                    })
+                } else {
+                    topicSection("Shared with You", footer: nil, topics: browsableGrants(account.access, account: account))
                 }
             }
         }
         .overlay {
             if isLoading {
                 ProgressView()
-            } else if let account, !account.isAnonymous, (account.reservations ?? []).isEmpty, (account.subscriptions ?? []).isEmpty, users.isEmpty {
+            } else if let account, !account.isAnonymous, (account.reservations ?? []).isEmpty, (account.subscriptions ?? []).isEmpty,
+                      (account.access ?? []).isEmpty, users.isEmpty, activeTopics.isEmpty {
                 ContentUnavailableView("No Topics Found", systemImage: "magnifyingglass", description: Text("Reserve a topic when adding it, and it shows up here."))
             }
         }
@@ -69,9 +79,9 @@ struct BrowseTopicsView: View {
 
     /// Grants other than the ones a reservation creates (owner read-write, everyone else's access)
     /// and deny-all rules, which block topics rather than offer them.
-    private func browsableGrants(_ user: ServerUser, account: Account) -> [BrowsedTopic] {
+    private func browsableGrants(_ grants: [ServerUser.Grant]?, account: Account) -> [BrowsedTopic] {
         let reserved = Set((account.reservations ?? []).map(\.topic))
-        return (user.grants ?? [])
+        return (grants ?? [])
             .filter { $0.permission != .denyAll && !reserved.contains($0.topic) }
             .map { BrowsedTopic(name: $0.topic, detail: $0.permission.grantLabel) }
     }
@@ -94,6 +104,7 @@ struct BrowseTopicsView: View {
             let account = try await client.account()
             self.account = account
             users = account.isAdmin ? (try? await client.users()) ?? [] : []
+            activeTopics = account.isAdmin ? (try? await client.activeTopics()) ?? [] : []
             error = nil
         } catch {
             self.error = error.localizedDescription

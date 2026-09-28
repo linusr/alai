@@ -73,6 +73,8 @@ public struct Account: Codable, Sendable, Equatable {
     public let role: String?
     public let subscriptions: [SyncedSubscription]?
     public let reservations: [Reservation]?
+    /// The account's own access grants, reservations included. Only the Alai server sends it.
+    public let access: [ServerUser.Grant]?
     public let tokens: [Token]?
 
     public var isAdmin: Bool { role == "admin" }
