@@ -161,8 +161,13 @@ private struct DayFeed: View {
     let showsTopic: Bool
     @State private var selectedDay = Calendar.current.startOfDay(for: .now)
     @State private var opened: StoredMessage?
+    /// Edge the next day slides in from, set by the direction of the last change.
+    @State private var incomingEdge = Edge.trailing
+    @Environment(AppModel.self) private var model
 
     private var calendar: Calendar { .current }
+    private var today: Date { calendar.startOfDay(for: .now) }
+    private var earliest: Date { calendar.date(byAdding: .day, value: -(model.calendarHistoryDays - 1), to: today) ?? today }
 
     private var daysWithMessages: Set<Date> {
         Set(messages.map { calendar.startOfDay(for: $0.time) })
@@ -174,14 +179,45 @@ private struct DayFeed: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            WeekStrip(selectedDay: $selectedDay, marked: daysWithMessages)
+            WeekStrip(selectedDay: dayBinding, marked: daysWithMessages)
+                .gesture(swipe { select(offset: 7 * $0) })
             Divider()
             HourGrid(day: selectedDay, messages: dayMessages, showsTopic: showsTopic) { opened = $0 }
                 .id(selectedDay)
+                .transition(.push(from: incomingEdge))
+                .simultaneousGesture(swipe { select(offset: $0) })
         }
+        .clipped()
         .sheet(item: $opened) { stored in
             OpenedMessage(stored: stored)
         }
+    }
+
+    /// Day changes from the week strip, animated in the direction of travel.
+    private var dayBinding: Binding<Date> {
+        Binding(get: { selectedDay }, set: { move(to: $0) })
+    }
+
+    /// Moves by `offset` days, clamped to the retention window and today.
+    private func select(offset: Int) {
+        guard let day = calendar.date(byAdding: .day, value: offset, to: selectedDay) else { return }
+        move(to: min(max(day, earliest), today))
+    }
+
+    private func move(to day: Date) {
+        guard day != selectedDay else { return }
+        incomingEdge = day > selectedDay ? .trailing : .leading
+        withAnimation(.snappy) { selectedDay = day }
+    }
+
+    /// A mostly horizontal swipe: left moves forward in time (`+1`), right moves back (`-1`).
+    private func swipe(_ action: @escaping (Int) -> Void) -> some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                let dx = value.translation.width, dy = value.translation.height
+                guard abs(dx) > 60, abs(dx) > abs(dy) * 1.5 else { return }
+                action(dx < 0 ? 1 : -1)
+            }
     }
 }
 
