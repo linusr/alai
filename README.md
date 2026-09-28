@@ -9,7 +9,7 @@
 > **Unofficial.** Alai is an independent project. It isn't affiliated with or endorsed by the ntfy project. For the
 > official app, see [ntfy on the App Store](https://apps.apple.com/us/app/ntfy/id1625396347).
 
-Instant push needs the [Alai server](https://github.com/linusr/ntfy), a hard fork of ntfy with APNs support;
+Instant push needs the [Alai server](https://github.com/linusr/alai-server), a hard fork of ntfy with APNs support;
 other ntfy servers work through the live stream and background refresh.
 
 ## Features

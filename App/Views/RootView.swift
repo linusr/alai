@@ -86,7 +86,7 @@ struct OnboardingView: View {
                 Text("Your notifications,\nyour server")
                     .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
-                Text("Connect to your ntfy server to receive instant notifications from scripts, services and devices.")
+                Text("Connect to your notification server to receive instant notifications from scripts, services and devices.")
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }

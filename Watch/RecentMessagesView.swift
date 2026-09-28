@@ -32,7 +32,7 @@ struct RecentMessagesView: View {
                     ContentUnavailableView(
                         "No Messages",
                         systemImage: "bell",
-                        description: Text(store.hasConfiguration ? "Messages from the last day appear here." : "Open ntfy on your iPhone to set up the watch.")
+                        description: Text(store.hasConfiguration ? "Messages from the last day appear here." : "Open Alai on your iPhone to set up the watch.")
                     )
                 }
             }
