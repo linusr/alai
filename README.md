@@ -58,7 +58,7 @@ not currently proposed.
 - Xcode 27, iOS 26+, watchOS 26+
 - An Apple Account for signing. A free account covers everything except APNs push, which needs an auth key from the
   paid Apple Developer Program; without it the app runs on the live stream and background refresh
-- [mise](https://mise.jdx.dev), which installs the pinned XcodeGen
+- [mise](https://mise.jdx.dev), which installs the pinned XcodeGen, and [just](https://just.systems) for the build recipes
 
 ## Setup
 
@@ -80,6 +80,9 @@ not currently proposed.
    mise exec -- xcodegen generate
    open Alai.xcodeproj
    ```
+
+To build, install and launch on a connected iPhone, run `just device` (or `just device <udid>` to pick one).
+`just --list` shows the other recipes: `build` for the simulator, `test` for NtfyKit, `generate` for the project.
 
 Debug builds register with the APNs sandbox and Release builds (TestFlight, App Store) with production, matching the
 `aps-environment` entitlement of each configuration.
