@@ -57,6 +57,10 @@ testflight: generate
 listing build="":
     uv run -q store/asc.py listing {{ build }}
 
+# Email a TestFlight invitation, adding the tester to the internal group first if needed
+testflight-invite email="linusr@me.com":
+    uv run -q store/asc.py invite {{ email }}
+
 # Show the App Store Connect app, versions and recent builds
 store-status:
     uv run -q store/asc.py status

@@ -232,6 +232,34 @@ def listing(build_number=None):
         attach_build(client, app, version, build_number)
 
 
+def invite(email):
+    """Adds a tester to the app's internal TestFlight group if needed, then emails them an invitation."""
+    client = Client()
+    app = client.app()
+    groups = [g for g in client.get("/betaGroups", **{"filter[app]": app["id"]})["data"] if g["attributes"]["isInternalGroup"]]
+    if not groups:
+        sys.exit("No internal TestFlight group; create one under TestFlight → Internal Testing first")
+    group = groups[0]
+    testers = client.get("/betaTesters", **{"filter[email]": email, "filter[apps]": app["id"]})["data"]
+    if testers:
+        tester = testers[0]
+    else:
+        # Internal testers must already be App Store Connect users on the team
+        tester = client.post("/betaTesters", {
+            "type": "betaTesters",
+            "attributes": {"email": email},
+            "relationships": {"betaGroups": {"data": [{"type": "betaGroups", "id": group["id"]}]}},
+        })["data"]
+    client.post("/betaTesterInvitations", {
+        "type": "betaTesterInvitations",
+        "relationships": {
+            "betaTester": {"data": {"type": "betaTesters", "id": tester["id"]}},
+            "app": {"data": {"type": "apps", "id": app["id"]}},
+        },
+    })
+    print(f"TestFlight invitation sent to {email} (group {group['attributes']['name']})")
+
+
 def status():
     client = Client()
     app = client.app()
@@ -248,5 +276,7 @@ if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else "status"
     if command == "listing":
         listing(sys.argv[2] if len(sys.argv) > 2 else None)
+    elif command == "invite":
+        invite(sys.argv[2])
     else:
         status()
