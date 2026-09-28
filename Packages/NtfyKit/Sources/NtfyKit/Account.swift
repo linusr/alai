@@ -69,6 +69,15 @@ public struct Account: Codable, Sendable, Equatable {
         public var lastAccessDate: Date? { lastAccess.flatMap { $0 > 0 ? Date(timeIntervalSince1970: TimeInterval($0)) : nil } }
     }
 
+    public struct Limits: Codable, Sendable, Equatable {
+        /// Seconds the server keeps this account's messages; its tier's value or the server's cache duration.
+        public let messagesExpiryDuration: Int64?
+
+        enum CodingKeys: String, CodingKey {
+            case messagesExpiryDuration = "messages_expiry_duration"
+        }
+    }
+
     public let username: String
     public let role: String?
     public let subscriptions: [SyncedSubscription]?
@@ -76,6 +85,7 @@ public struct Account: Codable, Sendable, Equatable {
     /// The account's own access grants, reservations included. Only the Alai server sends it.
     public let access: [ServerUser.Grant]?
     public let tokens: [Token]?
+    public let limits: Limits?
 
     public var isAdmin: Bool { role == "admin" }
     /// Anonymous visitors get a placeholder account named "*".

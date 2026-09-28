@@ -168,11 +168,19 @@ private struct DayFeed: View {
 }
 
 /// Seven days around the selected one; chevrons page by week and a dot marks days with messages.
+/// Only days within the servers' message retention are selectable, and never the future.
 private struct WeekStrip: View {
     @Binding var selectedDay: Date
     let marked: Set<Date>
+    @Environment(AppModel.self) private var model
 
     private var calendar: Calendar { .current }
+    private var today: Date { calendar.startOfDay(for: .now) }
+    private var earliest: Date { calendar.date(byAdding: .day, value: -(model.calendarHistoryDays - 1), to: today) ?? today }
+
+    private func isSelectable(_ day: Date) -> Bool {
+        day >= earliest && day <= today
+    }
 
     private var week: [Date] {
         let start = calendar.dateInterval(of: .weekOfYear, for: selectedDay)?.start ?? selectedDay
@@ -183,19 +191,22 @@ private struct WeekStrip: View {
         VStack(spacing: 8) {
             HStack {
                 Button("Previous Week", systemImage: "chevron.left") { shift(weeks: -1) }
+                    .disabled(week.first.map { $0 <= earliest } ?? true)
                 Spacer()
                 Text(selectedDay.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.headline)
                     .contentTransition(.numericText())
                 Spacer()
                 Button("Next Week", systemImage: "chevron.right") { shift(weeks: 1) }
+                    .disabled(week.last.map { $0 >= today } ?? true)
             }
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
             HStack(spacing: 0) {
                 ForEach(week, id: \.self) { day in
-                    DayCell(day: day, isSelected: calendar.isDate(day, inSameDayAs: selectedDay), hasMessages: marked.contains(day))
-                        .onTapGesture { withAnimation(.snappy) { selectedDay = day } }
+                    let selectable = isSelectable(day)
+                    DayCell(day: day, isSelected: calendar.isDate(day, inSameDayAs: selectedDay), hasMessages: marked.contains(day), isEnabled: selectable)
+                        .onTapGesture { if selectable { withAnimation(.snappy) { selectedDay = day } } }
                 }
             }
             if !calendar.isDateInToday(selectedDay) {
@@ -210,9 +221,8 @@ private struct WeekStrip: View {
     }
 
     private func shift(weeks: Int) {
-        if let day = calendar.date(byAdding: .weekOfYear, value: weeks, to: selectedDay) {
-            withAnimation(.snappy) { selectedDay = day }
-        }
+        guard let day = calendar.date(byAdding: .weekOfYear, value: weeks, to: selectedDay) else { return }
+        withAnimation(.snappy) { selectedDay = min(max(day, earliest), today) }
     }
 }
 
@@ -220,6 +230,7 @@ private struct DayCell: View {
     let day: Date
     let isSelected: Bool
     let hasMessages: Bool
+    let isEnabled: Bool
 
     var body: some View {
         let isToday = Calendar.current.isDateInToday(day)
@@ -237,14 +248,16 @@ private struct DayCell: View {
                 .frame(width: 5, height: 5)
         }
         .frame(maxWidth: .infinity)
+        .opacity(isEnabled ? 1 : 0.3)
         .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAddTraits(isEnabled ? (isSelected ? [.isButton, .isSelected] : .isButton) : [])
     }
 }
 
-/// The 24 hours of a day, each row growing to fit its messages; today shows a "now" marker.
+/// The hours of a day, each row growing to fit its messages. Today stops at the current hour,
+/// which ends with a "now" marker.
 private struct HourGrid: View {
     let day: Date
     let messages: [StoredMessage]
@@ -255,6 +268,10 @@ private struct HourGrid: View {
 
     private var byHour: [Int: [StoredMessage]] {
         Dictionary(grouping: messages) { calendar.component(.hour, from: $0.time) }
+    }
+
+    private var lastHour: Int {
+        calendar.isDateInToday(day) ? calendar.component(.hour, from: .now) : 23
     }
 
     private var initialHour: Int {
@@ -272,7 +289,7 @@ private struct HourGrid: View {
                             .foregroundStyle(.secondary)
                             .padding(.vertical, 12)
                     }
-                    ForEach(0..<24, id: \.self) { hour in
+                    ForEach(0...lastHour, id: \.self) { hour in
                         HourRow(hour: hour, day: day, messages: byHour[hour] ?? [], showsTopic: showsTopic, open: open)
                             .id(hour)
                     }

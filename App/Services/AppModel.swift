@@ -17,6 +17,15 @@ final class AppModel {
     @ObservationIgnored private let watch = WatchBridge()
     private(set) var isRefreshing = false
     private(set) var lastError: String?
+    /// Seconds each server keeps messages, keyed by server URL string; persisted for offline launches.
+    private(set) var retention: [String: Double] = UserDefaults.standard.dictionary(forKey: "serverRetention") as? [String: Double] ?? [:]
+
+    /// Days the calendar reaches back: the longest retention among the servers, or 30 days
+    /// (the Alai server default) until a server has reported it.
+    var calendarHistoryDays: Int {
+        guard let longest = retention.values.max(), longest > 0 else { return 30 }
+        return max(1, Int((longest / 86_400).rounded(.up)))
+    }
 
     init(inMemory: Bool = false) {
         let configuration = ModelConfiguration(isStoredInMemoryOnly: inMemory)
@@ -110,6 +119,7 @@ final class AppModel {
         store.ingestInbox()
         store.backfillSearchText()
         SpotlightIndex.rebuildIfNeeded(store)
+        await updateRetention()
         isRefreshing = true
         defer { isRefreshing = false }
         lastError = nil
@@ -117,6 +127,18 @@ final class AppModel {
             await refresh(subscription)
         }
         await publish()
+    }
+
+    private func updateRetention() async {
+        var updated = retention.filter { key, _ in servers.servers.contains { $0.absoluteString == key } }
+        for server in servers.servers {
+            if let seconds = try? await servers.client(for: server).account().limits?.messagesExpiryDuration, seconds > 0 {
+                updated[server.absoluteString] = Double(seconds)
+            }
+        }
+        guard updated != retention else { return }
+        retention = updated
+        UserDefaults.standard.set(updated, forKey: "serverRetention")
     }
 
     /// Fetches every message the servers still hold, including ones deleted on this device.
