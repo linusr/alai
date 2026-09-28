@@ -35,8 +35,10 @@ func wave(baseline: CGFloat, amplitude: CGFloat, phase: CGFloat, wavelength: CGF
 func render(_ variant: Variant) throws {
     let s = CGFloat(size)
     let space = CGColorSpace(name: CGColorSpace.sRGB)!
+    // App Store Connect rejects a primary icon with an alpha channel; only the tinted variant needs transparency
+    let alpha: CGImageAlphaInfo = variant == .tinted ? .premultipliedLast : .noneSkipLast
     guard let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0, space: space,
-                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+                                  bitmapInfo: alpha.rawValue) else { return }
 
     // Background: blue gradient (light), deep navy (dark), transparent (tinted, the system supplies the color)
     switch variant {

@@ -37,6 +37,22 @@ device udid="": generate
     xcrun devicectl device install app --device "$udid" build/device/Build/Products/Debug-iphoneos/Alai.app
     xcrun devicectl device process launch --device "$udid" --terminate-existing {{ bundle_id }}
 
+# Archive a Release build and upload it to App Store Connect for TestFlight
+testflight: generate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Every upload needs a new build number; a UTC timestamp always increases
+    build=$(date -u +%Y%m%d%H%M)
+    /bin/rm -rf build/Alai.xcarchive build/export
+    echo "Archiving build $build"
+    xcodebuild archive -project Alai.xcodeproj -scheme Alai -configuration Release \
+        -destination 'generic/platform=iOS' -archivePath build/Alai.xcarchive \
+        -allowProvisioningUpdates -quiet CURRENT_PROJECT_VERSION="$build"
+    echo "Uploading build $build"
+    xcodebuild -exportArchive -archivePath build/Alai.xcarchive -exportOptionsPlist ExportOptions.plist \
+        -exportPath build/export -allowProvisioningUpdates
+    echo "Uploaded build $build. It shows in TestFlight once App Store Connect finishes processing."
+
 # Build for the iOS simulator
 build: generate
     xcodebuild -project Alai.xcodeproj -scheme Alai -destination 'generic/platform=iOS Simulator' \

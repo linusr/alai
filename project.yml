@@ -49,7 +49,11 @@ targets:
     info:
       path: App/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Alai
+        # Only standard HTTPS, which is exempt from export compliance documentation
+        ITSAppUsesNonExemptEncryption: false
         NtfyAppGroup: $(APP_GROUP)
         NtfyPushEnvironment: $(PUSH_ENVIRONMENT)
         UILaunchScreen: {}
@@ -82,6 +86,8 @@ targets:
     info:
       path: NotificationService/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Alai Notifications
         NtfyAppGroup: $(APP_GROUP)
         NSExtension:
@@ -105,6 +111,8 @@ targets:
     info:
       path: Widgets/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Alai Widgets
         NtfyAppGroup: $(APP_GROUP)
         NSExtension:
@@ -130,9 +138,12 @@ targets:
     info:
       path: Watch/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Alai
         WKApplication: true
         WKCompanionAppBundleIdentifier: $(APP_BUNDLE_ID)
+        ITSAppUsesNonExemptEncryption: false
         NtfyAppGroup: $(APP_GROUP)
     entitlements:
       path: Watch/AlaiWatch.entitlements
@@ -152,6 +163,8 @@ targets:
     info:
       path: WatchWidgets/Info.plist
       properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDisplayName: Alai Complications
         NtfyAppGroup: $(APP_GROUP)
         NSExtension:

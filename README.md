@@ -84,6 +84,15 @@ not currently proposed.
 To build, install and launch on a connected iPhone, run `just device` (or `just device <udid>` to pick one).
 `just --list` shows the other recipes: `build` for the simulator, `test` for NtfyKit, `generate` for the project.
 
+### TestFlight
+
+1. In [App Store Connect](https://appstoreconnect.apple.com), create the app once (*Apps → + → New App*): platform
+   iOS, bundle ID `me.4vr.alai`, any unused name and SKU.
+2. Run `just testflight`. It archives a Release build numbered with the current UTC time, then uploads it with
+   the Apple Account signed in to Xcode.
+3. Once processing finishes, add testers under the app's *TestFlight* tab. Internal testers (people on the team)
+   need no review.
+
 Debug builds register with the APNs sandbox and Release builds (TestFlight, App Store) with production, matching the
 `aps-environment` entitlement of each configuration.
 
