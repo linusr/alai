@@ -8,6 +8,8 @@ import NtfyKit
 /// plus `-openScreen browse|tokens|devicekey|addtopic` to open a screen directly.
 @MainActor
 enum DebugSeed {
+    private static var didOpenTopic = false
+
     static func apply(to model: AppModel) async {
         let defaults = UserDefaults.standard
         guard let server = defaults.string(forKey: "seedServer").flatMap(URL.init(string:)) else { return }
@@ -23,8 +25,9 @@ enum DebugSeed {
             model.container.mainContext.insert(Subscription(baseURL: server, topic: topic, symbol: symbols[(index * 5 + 1) % symbols.count], tint: tints[(index * 3) % tints.count]))
         }
         try? model.container.mainContext.save()
-        if let topic = defaults.string(forKey: "openTopic"), model.router.selectedTopicKey == nil {
-            model.router.selectedTopicKey = topic == Router.allNotifications ? topic : topicKey(baseURL: server, topic: topic)
+        if let topic = defaults.string(forKey: "openTopic"), !didOpenTopic {
+            didOpenTopic = true
+            model.router.show(topicKey: topic == Router.allNotifications ? topic : topicKey(baseURL: server, topic: topic))
         }
         if let screen = defaults.string(forKey: "openScreen"), model.router.debugScreen == nil {
             model.router.debugScreen = screen

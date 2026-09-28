@@ -17,17 +17,18 @@ struct RootView: View {
         } else {
             TabView(selection: $tab) {
                 Tab("Topics", systemImage: "bell.badge", value: HomeTab.topics) {
-                    NavigationSplitView {
-                        TopicListView(selection: $router.selectedTopicKey)
-                    } detail: {
-                        if router.selectedTopicKey == Router.allNotifications {
-                            AllNotificationsView()
-                        } else if let subscription = subscriptions.first(where: { $0.key == router.selectedTopicKey }) {
-                            TopicView(subscription: subscription)
-                                .id(subscription.key)
-                        } else {
-                            ContentUnavailableView("Select a Topic", systemImage: "bell.badge")
-                        }
+                    NavigationStack(path: $router.topicPath) {
+                        TopicListView()
+                            .navigationDestination(for: String.self) { key in
+                                if key == Router.allNotifications {
+                                    AllNotificationsView()
+                                } else if let subscription = subscriptions.first(where: { $0.key == key }) {
+                                    TopicView(subscription: subscription)
+                                        .id(subscription.key)
+                                } else {
+                                    ContentUnavailableView("Topic Not Found", systemImage: "bell.slash")
+                                }
+                            }
                     }
                 }
                 Tab("Calendar", systemImage: "calendar", value: HomeTab.calendar) {
@@ -49,10 +50,8 @@ struct RootView: View {
                 if tab == .search { isSearching = true }
             }
             #endif
-            // A notification, widget or Spotlight result that selects a topic shows it in the Topics tab
-            .onChange(of: router.selectedTopicKey) { _, key in
-                if key != nil { tab = .topics }
-            }
+            // A notification, widget or Spotlight result that opens a topic shows it in the Topics tab
+            .onChange(of: router.openRequest) { if tab != .topics { tab = .topics } }
             .sheet(item: Binding(
                 get: { router.openedMessageKey.flatMap { model.store.message(key: $0) } },
                 set: { if $0 == nil { router.openedMessageKey = nil } }

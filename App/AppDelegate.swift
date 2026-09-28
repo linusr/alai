@@ -86,7 +86,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
             return
         }
         if actionIdentifier == UNNotificationDefaultActionIdentifier {
-            model.router.selectedTopicKey = threadIdentifier
+            model.router.show(topicKey: threadIdentifier)
         }
         completion()
         if actionIdentifier == UNNotificationDefaultActionIdentifier, let click = message.click, let url = URL(string: click) {

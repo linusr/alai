@@ -1,0 +1,3 @@
+support_url=https://4vr.me/alai/support.html
+privacy_url=https://4vr.me/alai/privacy.html
+marketing_url=https://4vr.me/alai/

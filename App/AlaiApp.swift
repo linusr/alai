@@ -23,7 +23,7 @@ struct AlaiApp: App {
                     }
                 }
         }
-        .onChange(of: scenePhase) { _, phase in
+        .onChange(of: scenePhase, initial: true) { _, phase in
             let model = delegate.model
             switch phase {
             case .active:

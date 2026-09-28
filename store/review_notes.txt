@@ -1,0 +1,10 @@
+Alai is a client for self-hosted notification servers. To review it, use the demo server below.
+
+1. Launch the app and tap "Connect Server".
+2. Enter the server address alerts.4vr.me. Under "Sign In", choose "Username" and enter the demo username and password provided with this submission, then tap Connect.
+3. The demo account is subscribed to three topics (demo-server, demo-backups, demo-home), which appear automatically after signing in. Sample notifications are posted to them every day.
+4. To send yourself a notification, open a topic, tap the compose button (square with pencil), write a message and send it. It arrives as a push notification on the device within a second.
+   Alternatively, from any computer: curl -u USERNAME:PASSWORD -d "Hello from review" https://alerts.4vr.me/demo-home
+5. The Calendar tab shows the day's notifications on an hour-by-hour timeline; swipe left or right to change days. The Search tab searches all messages.
+
+The app does not collect any data. It communicates only with servers the user adds.

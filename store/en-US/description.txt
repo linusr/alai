@@ -1,0 +1,26 @@
+Alai delivers notifications from a server you run yourself to your iPhone and Apple Watch. Scripts, backups, monitoring tools, CI pipelines and smart-home devices publish a message with a single HTTP request, and it arrives instantly as a native notification.
+
+INSTANT, PRIVATE PUSH
+With the open-source Alai server, pushes go straight from your server through Apple Push Notification service. There is no third-party relay and no account with us. The app also works with other ntfy-compatible servers, fetching new messages when opened and in the background.
+
+EVERYTHING IN ONE PLACE
+• Topics list with unread counts, and All Notifications across every topic
+• Calendar view: a week strip over an hour-by-hour timeline of the day's notifications
+• Search across every message, and results in iPhone-wide Spotlight search
+• Rich messages: Markdown, priorities, emoji tags, images and attachments, and action buttons that open links or call webhooks
+
+BUILT FOR APPLE DEVICES
+• Home Screen and Lock Screen widgets with recent notifications
+• Apple Watch app with complications for the latest message and unread count
+• Time-sensitive delivery for high-priority alerts
+• Swipe to mute, mark as read or unsubscribe
+
+YOUR SERVER, YOUR RULES
+• Sign in with a username and password or an access token
+• Browse the topics you own and those shared with you
+• Reserve topics and choose who else may read or publish
+• Create device keys: labeled access tokens with an optional expiry and a ready-to-paste curl command
+
+No ads, no analytics, no tracking. Alai talks only to the servers you add.
+
+Alai is an independent project and is not affiliated with or endorsed by the ntfy project.

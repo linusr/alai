@@ -6,17 +6,28 @@ import NtfyKit
 @Observable
 @MainActor
 final class Router {
-    /// A topic key, or `Router.allNotifications` for the cross-topic feed.
-    var selectedTopicKey: String?
+    /// Screens pushed on the Topics tab: topic keys, or `Router.allNotifications` for the cross-topic feed.
+    var topicPath: [String] = []
+
+    /// The topic on screen, if any.
+    var selectedTopicKey: String? { topicPath.last }
 
     static let allNotifications = "all"
+
+    /// Set when something outside the Topics tab opens a topic, so the Topics tab comes forward.
+    private(set) var openRequest = 0
+
+    func show(topicKey: String) {
+        topicPath = [topicKey]
+        openRequest += 1
+    }
 
     /// A stored message key to show on top of its topic, e.g. from a Spotlight result.
     var openedMessageKey: String?
 
     func openMessage(key: String) {
         guard let separator = key.lastIndex(of: "#") else { return }
-        selectedTopicKey = String(key[..<separator])
+        show(topicKey: String(key[..<separator]))
         openedMessageKey = key
     }
     #if DEBUG
@@ -28,6 +39,6 @@ final class Router {
         guard url.scheme == TopicStyle.linkScheme, url.host() == "topic",
               let key = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "key" })?.value
         else { return }
-        selectedTopicKey = key
+        show(topicKey: key)
     }
 }

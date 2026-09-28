@@ -3,8 +3,8 @@ import SwiftData
 import NtfyKit
 
 struct TopicListView: View {
-    @Binding var selection: String?
     @Environment(AppModel.self) private var model
+    @Environment(Router.self) private var router
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @State private var isAddingTopic = false
     @State private var isBrowsing = false
@@ -39,7 +39,7 @@ struct TopicListView: View {
             ) {
                 Button("Unsubscribe", role: .destructive) {
                     if let subscription = pendingUnsubscribe {
-                        if selection == subscription.key { selection = nil }
+                        if router.selectedTopicKey == subscription.key { router.topicPath = [] }
                         Task { await model.unsubscribe(subscription) }
                     }
                 }
@@ -49,14 +49,16 @@ struct TopicListView: View {
     }
 
     private var topicList: some View {
-        List(selection: $selection) {
+        List {
             if !subscriptions.isEmpty {
-                AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
-                    .tag(Router.allNotifications)
+                NavigationLink(value: Router.allNotifications) {
+                    AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
+                }
             }
             ForEach(sorted) { subscription in
-                TopicRow(subscription: subscription)
-                    .tag(subscription.key)
+                NavigationLink(value: subscription.key) {
+                    TopicRow(subscription: subscription)
+                }
                     .swipeActions(edge: .trailing) {
                         Button("Unsubscribe", systemImage: "trash", role: .destructive) {
                             pendingUnsubscribe = subscription
