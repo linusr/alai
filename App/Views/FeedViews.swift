@@ -107,6 +107,24 @@ private struct TopicLabel: View {
 
 // MARK: - Search
 
+/// The Search tab: searches every topic's messages on this device.
+struct SearchView: View {
+    let query: String
+
+    private var trimmed: String { query.trimmingCharacters(in: .whitespaces) }
+
+    var body: some View {
+        Group {
+            if trimmed.isEmpty {
+                ContentUnavailableView("Search Messages", systemImage: "magnifyingglass", description: Text("Find messages from every topic by title, text, tag or attachment name."))
+            } else {
+                SearchResults(query: trimmed)
+            }
+        }
+        .navigationTitle("Search")
+    }
+}
+
 /// Messages from every topic whose title, body, tags or attachment name contain the query, newest first.
 struct SearchResults: View {
     let query: String

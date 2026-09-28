@@ -11,32 +11,14 @@ struct TopicListView: View {
     @State private var isBrowsing = false
     @Environment(ServerDirectory.self) private var servers
     @State private var pendingUnsubscribe: Subscription?
-    @AppStorage("homeMode") private var mode = HomeMode.topics
-    @State private var query = ""
 
     private var sorted: [Subscription] {
         subscriptions.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
     }
 
     var body: some View {
-        content
-            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search messages")
-            #if DEBUG
-            .onAppear { if let seeded = UserDefaults.standard.string(forKey: "searchQuery") { query = seeded } }
-            #endif
-            .navigationTitle(mode == .topics ? "Topics" : "Calendar")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("View", selection: $mode.animation()) {
-                        Label("Topics", systemImage: "list.bullet").tag(HomeMode.topics)
-                        Label("Calendar", systemImage: "calendar").tag(HomeMode.calendar)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelStyle(.titleOnly)
-                    .frame(width: 220)
-                }
-            }
+        topicList
+            .navigationTitle("Topics")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
@@ -73,18 +55,6 @@ struct TopicListView: View {
             } message: {
                 Text("Its messages will be removed from this device.")
             }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
-            SearchResults(query: query.trimmingCharacters(in: .whitespaces))
-        } else {
-            switch mode {
-            case .topics: topicList
-            case .calendar: CalendarHome()
-            }
-        }
     }
 
     private var topicList: some View {
@@ -132,10 +102,6 @@ struct TopicListView: View {
             }
         }
     }
-}
-
-enum HomeMode: String {
-    case topics, calendar
 }
 
 private struct AllNotificationsRow: View {

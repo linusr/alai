@@ -4,7 +4,7 @@ import NtfyKit
 
 /// Launch arguments for simulator runs and screenshots:
 /// `-seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts -openTopic alerts`
-/// (`-openTopic all` opens All Notifications, `-feedMode day` the day view, `-searchQuery disk` searches),
+/// (`-openTopic all` opens All Notifications, `-feedMode day` the day view, `-homeTab calendar|search` picks the tab, `-searchQuery disk` prefills search),
 /// plus `-openScreen browse|tokens|devicekey|addtopic` to open a screen directly.
 @MainActor
 enum DebugSeed {

@@ -6,23 +6,51 @@ struct RootView: View {
     @Environment(Router.self) private var router
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @Environment(AppModel.self) private var model
+    @AppStorage("homeTab") private var tab = HomeTab.topics
+    @State private var query = ""
+    @State private var isSearching = false
 
     var body: some View {
         @Bindable var router = router
         if servers.servers.isEmpty {
             OnboardingView()
         } else {
-            NavigationSplitView {
-                TopicListView(selection: $router.selectedTopicKey)
-            } detail: {
-                if router.selectedTopicKey == Router.allNotifications {
-                    AllNotificationsView()
-                } else if let subscription = subscriptions.first(where: { $0.key == router.selectedTopicKey }) {
-                    TopicView(subscription: subscription)
-                        .id(subscription.key)
-                } else {
-                    ContentUnavailableView("Select a Topic", systemImage: "bell.badge")
+            TabView(selection: $tab) {
+                Tab("Topics", systemImage: "bell.badge", value: HomeTab.topics) {
+                    NavigationSplitView {
+                        TopicListView(selection: $router.selectedTopicKey)
+                    } detail: {
+                        if router.selectedTopicKey == Router.allNotifications {
+                            AllNotificationsView()
+                        } else if let subscription = subscriptions.first(where: { $0.key == router.selectedTopicKey }) {
+                            TopicView(subscription: subscription)
+                                .id(subscription.key)
+                        } else {
+                            ContentUnavailableView("Select a Topic", systemImage: "bell.badge")
+                        }
+                    }
                 }
+                Tab("Calendar", systemImage: "calendar", value: HomeTab.calendar) {
+                    NavigationStack {
+                        CalendarHome()
+                            .navigationTitle("Calendar")
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
+                Tab(value: HomeTab.search, role: .search) {
+                    NavigationStack { SearchView(query: query) }
+                }
+            }
+            .searchable(text: $query, isPresented: $isSearching, prompt: "Messages")
+            #if DEBUG
+            .onAppear {
+                if let seeded = UserDefaults.standard.string(forKey: "searchQuery") { query = seeded }
+                if tab == .search { isSearching = true }
+            }
+            #endif
+            // A notification, widget or Spotlight result that selects a topic shows it in the Topics tab
+            .onChange(of: router.selectedTopicKey) { _, key in
+                if key != nil { tab = .topics }
             }
             .sheet(item: Binding(
                 get: { router.openedMessageKey.flatMap { model.store.message(key: $0) } },
@@ -37,6 +65,10 @@ struct RootView: View {
             #endif
         }
     }
+}
+
+enum HomeTab: String {
+    case topics, calendar, search
 }
 
 struct OnboardingView: View {
