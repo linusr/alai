@@ -18,6 +18,10 @@ struct TopicListView: View {
 
     var body: some View {
         List(selection: $selection) {
+            if !subscriptions.isEmpty {
+                AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
+                    .tag(Router.allNotifications)
+            }
             ForEach(sorted) { subscription in
                 TopicRow(subscription: subscription)
                     .tag(subscription.key)
@@ -93,6 +97,32 @@ struct TopicListView: View {
         } message: {
             Text("Its messages will be removed from this device.")
         }
+    }
+}
+
+private struct AllNotificationsRow: View {
+    let unread: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "tray.full.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Color.accentColor.gradient, in: .rect(cornerRadius: 11))
+                .accessibilityHidden(true)
+            Text("All Notifications").font(.headline)
+            Spacer()
+            if unread > 0 {
+                Text(unread, format: .number)
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor, in: .capsule)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

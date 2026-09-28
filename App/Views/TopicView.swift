@@ -10,48 +10,9 @@ struct TopicView: View {
     @State private var isEditing = false
     @State private var isAddingDevice = false
 
-    private var days: [(day: Date, messages: [StoredMessage])] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: subscription.messages) { calendar.startOfDay(for: $0.time) }
-        return grouped.keys.sorted(by: >).map { day in
-            (day, grouped[day]!.sorted { $0.time > $1.time })
-        }
-    }
-
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12, pinnedViews: .sectionHeaders) {
-                ForEach(days, id: \.day) { day in
-                    Section {
-                        ForEach(day.messages) { stored in
-                            if let message = stored.message {
-                                MessageCard(message: message, isUnread: !stored.isRead, tint: subscription.tint, server: subscription.serverURL)
-                                    .contextMenu {
-                                        Button("Copy", systemImage: "doc.on.doc") {
-                                            UIPasteboard.general.string = message.message
-                                        }
-                                        Button("Delete", systemImage: "trash", role: .destructive) {
-                                            context.delete(stored)
-                                        }
-                                    }
-                            }
-                        }
-                    } header: {
-                        Text(dayTitle(day.day))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            }
-            .padding()
-        }
-        .background(Color(.systemGroupedBackground))
-        .overlay {
-            if subscription.messages.isEmpty {
-                EmptyTopicView(subscription: subscription)
-            }
+        MessageFeed(messages: subscription.messages, showsTopic: false) {
+            EmptyTopicView(subscription: subscription)
         }
         .navigationTitle(subscription.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -81,17 +42,6 @@ struct TopicView: View {
         .sheet(isPresented: $isEditing) { EditTopicView(subscription: subscription) }
         .sheet(isPresented: $isAddingDevice) { DeviceKeyView(subscription: subscription) }
     }
-}
-
-/// "Today", "Yesterday", the weekday within the last week, or the date.
-private func dayTitle(_ date: Date) -> String {
-    let calendar = Calendar.current
-    if calendar.isDateInToday(date) { return String(localized: "Today") }
-    if calendar.isDateInYesterday(date) { return String(localized: "Yesterday") }
-    if let days = calendar.dateComponents([.day], from: date, to: .now).day, days < 7 {
-        return date.formatted(.dateTime.weekday(.wide))
-    }
-    return date.formatted(date: .abbreviated, time: .omitted)
 }
 
 private struct EmptyTopicView: View {

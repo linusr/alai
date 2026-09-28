@@ -202,6 +202,10 @@ final class AppModel {
 
     /// Asked after content is loaded, since the system prompt blocks until answered.
     private func requestNotificationPermission() async {
+        #if DEBUG
+        // Seeded simulator runs are for screenshots; the prompt would cover them
+        if UserDefaults.standard.string(forKey: "seedServer") != nil { return }
+        #endif
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
     }
 }

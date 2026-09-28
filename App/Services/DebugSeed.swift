@@ -3,7 +3,8 @@ import Foundation
 import NtfyKit
 
 /// Launch arguments for simulator runs and screenshots:
-/// `-seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts -openTopic alerts`,
+/// `-seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts -openTopic alerts`
+/// (`-openTopic all` opens All Notifications, `-feedMode day` the day view),
 /// plus `-openScreen browse|tokens|devicekey|addtopic` to open a screen directly.
 @MainActor
 enum DebugSeed {
@@ -23,7 +24,7 @@ enum DebugSeed {
         }
         try? model.container.mainContext.save()
         if let topic = defaults.string(forKey: "openTopic"), model.router.selectedTopicKey == nil {
-            model.router.selectedTopicKey = topicKey(baseURL: server, topic: topic)
+            model.router.selectedTopicKey = topic == Router.allNotifications ? topic : topicKey(baseURL: server, topic: topic)
         }
         if let screen = defaults.string(forKey: "openScreen"), model.router.debugScreen == nil {
             model.router.debugScreen = screen

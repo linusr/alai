@@ -6,7 +6,10 @@ import NtfyKit
 @Observable
 @MainActor
 final class Router {
+    /// A topic key, or `Router.allNotifications` for the cross-topic feed.
     var selectedTopicKey: String?
+
+    static let allNotifications = "all"
     #if DEBUG
     var debugScreen: String?
     #endif
