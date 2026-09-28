@@ -104,6 +104,16 @@ private struct TopicLabel: View {
 
 // MARK: - Day view
 
+/// The day view of every topic's messages, shown on the home screen in calendar mode.
+struct CalendarHome: View {
+    @Query(sort: \StoredMessage.time, order: .reverse) private var messages: [StoredMessage]
+
+    var body: some View {
+        DayFeed(messages: messages.filter { $0.subscription != nil }, showsTopic: true)
+            .background(Color(.systemGroupedBackground))
+    }
+}
+
 private struct DayFeed: View {
     let messages: [StoredMessage]
     let showsTopic: Bool

@@ -11,12 +11,74 @@ struct TopicListView: View {
     @State private var isBrowsing = false
     @Environment(ServerDirectory.self) private var servers
     @State private var pendingUnsubscribe: Subscription?
+    @AppStorage("homeMode") private var mode = HomeMode.topics
 
     private var sorted: [Subscription] {
         subscriptions.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
     }
 
     var body: some View {
+        content
+            .navigationTitle(mode == .topics ? "Topics" : "Calendar")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("View", selection: $mode.animation()) {
+                        Label("Topics", systemImage: "list.bullet").tag(HomeMode.topics)
+                        Label("Calendar", systemImage: "calendar").tag(HomeMode.calendar)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelStyle(.titleOnly)
+                    .frame(width: 220)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Add Topic", systemImage: "plus") { isAddingTopic = true }
+                }
+            }
+            .sheet(isPresented: $isAddingTopic) { AddTopicView() }
+            .sheet(isPresented: $isShowingSettings) { SettingsView() }
+            .sheet(isPresented: $isBrowsing) {
+                if let server = servers.defaultServer {
+                    NavigationStack {
+                        BrowseTopicsView(server: server)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done", role: .confirm) { isBrowsing = false }
+                                }
+                            }
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
+                isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Unsubscribe", role: .destructive) {
+                    if let subscription = pendingUnsubscribe {
+                        if selection == subscription.key { selection = nil }
+                        Task { await model.unsubscribe(subscription) }
+                    }
+                }
+            } message: {
+                Text("Its messages will be removed from this device.")
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch mode {
+        case .topics: topicList
+        case .calendar: CalendarHome()
+        }
+    }
+
+    private var topicList: some View {
         List(selection: $selection) {
             if !subscriptions.isEmpty {
                 AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
@@ -44,7 +106,6 @@ struct TopicListView: View {
                     }
             }
         }
-        .navigationTitle("Topics")
         .refreshable { await model.refreshAll() }
         .overlay {
             if subscriptions.isEmpty {
@@ -61,43 +122,11 @@ struct TopicListView: View {
                 }
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Add Topic", systemImage: "plus") { isAddingTopic = true }
-            }
-        }
-        .sheet(isPresented: $isAddingTopic) { AddTopicView() }
-        .sheet(isPresented: $isShowingSettings) { SettingsView() }
-        .sheet(isPresented: $isBrowsing) {
-            if let server = servers.defaultServer {
-                NavigationStack {
-                    BrowseTopicsView(server: server)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done", role: .confirm) { isBrowsing = false }
-                            }
-                        }
-                }
-            }
-        }
-        .confirmationDialog(
-            "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
-            isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("Unsubscribe", role: .destructive) {
-                if let subscription = pendingUnsubscribe {
-                    if selection == subscription.key { selection = nil }
-                    Task { await model.unsubscribe(subscription) }
-                }
-            }
-        } message: {
-            Text("Its messages will be removed from this device.")
-        }
     }
+}
+
+enum HomeMode: String {
+    case topics, calendar
 }
 
 private struct AllNotificationsRow: View {
