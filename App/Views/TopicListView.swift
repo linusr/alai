@@ -12,6 +12,7 @@ struct TopicListView: View {
     @Environment(ServerDirectory.self) private var servers
     @State private var pendingUnsubscribe: Subscription?
     @AppStorage("homeMode") private var mode = HomeMode.topics
+    @State private var query = ""
 
     private var sorted: [Subscription] {
         subscriptions.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
@@ -19,6 +20,10 @@ struct TopicListView: View {
 
     var body: some View {
         content
+            .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search messages")
+            #if DEBUG
+            .onAppear { if let seeded = UserDefaults.standard.string(forKey: "searchQuery") { query = seeded } }
+            #endif
             .navigationTitle(mode == .topics ? "Topics" : "Calendar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -72,9 +77,13 @@ struct TopicListView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch mode {
-        case .topics: topicList
-        case .calendar: CalendarHome()
+        if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+            SearchResults(query: query.trimmingCharacters(in: .whitespaces))
+        } else {
+            switch mode {
+            case .topics: topicList
+            case .calendar: CalendarHome()
+            }
         }
     }
 

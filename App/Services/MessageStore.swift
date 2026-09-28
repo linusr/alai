@@ -22,6 +22,8 @@ struct MessageStore {
     @discardableResult
     func apply(_ messages: [Message], to subscription: Subscription) -> [Message] {
         var fresh: [Message] = []
+        var changed: [StoredMessage] = []
+        var removed: [String] = []
         for message in messages.sorted(by: { $0.time < $1.time }) {
             switch message.kind {
             case .message:
@@ -29,13 +31,19 @@ struct MessageStore {
                 if let existing = stored(key: key) {
                     guard existing.messageID != message.id, existing.time <= message.date else { continue }
                     existing.update(with: message)
+                    changed.append(existing)
                 } else {
-                    context.insert(StoredMessage(message: message, subscription: subscription))
+                    let stored = StoredMessage(message: message, subscription: subscription)
+                    context.insert(stored)
+                    changed.append(stored)
                 }
                 fresh.append(message)
                 subscription.lastMessageID = message.id
             case .messageDelete:
-                stored(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID)).map(context.delete)
+                if let stored = stored(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID)) {
+                    removed.append(stored.key)
+                    context.delete(stored)
+                }
             case .messageClear:
                 stored(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID))?.isRead = true
             default:
@@ -43,7 +51,27 @@ struct MessageStore {
             }
         }
         try? context.save()
+        SpotlightIndex.index(changed)
+        SpotlightIndex.remove(keys: removed)
         return fresh
+    }
+
+    /// Fills in search text for messages stored before it existed.
+    func backfillSearchText() {
+        let descriptor = FetchDescriptor<StoredMessage>(predicate: #Predicate { $0.searchText == "" })
+        guard let messages = try? context.fetch(descriptor), !messages.isEmpty else { return }
+        for stored in messages {
+            if let message = stored.message { stored.searchText = StoredMessage.searchText(for: message) }
+        }
+        try? context.save()
+    }
+
+    func allMessages() -> [StoredMessage] {
+        (try? context.fetch(FetchDescriptor<StoredMessage>())) ?? []
+    }
+
+    func message(key: String) -> StoredMessage? {
+        stored(key: key)
     }
 
     /// Moves messages the notification service extension received into the database.

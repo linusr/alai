@@ -73,6 +73,7 @@ final class AppModel {
     }
 
     func unsubscribe(_ subscription: Subscription) async {
+        SpotlightIndex.remove(topicKey: subscription.key)
         container.mainContext.delete(subscription)
         try? container.mainContext.save()
         await subscriptionsChanged()
@@ -107,6 +108,8 @@ final class AppModel {
         await DebugSeed.apply(to: self)
         #endif
         store.ingestInbox()
+        store.backfillSearchText()
+        SpotlightIndex.rebuildIfNeeded(store)
         isRefreshing = true
         defer { isRefreshing = false }
         lastError = nil
@@ -116,10 +119,23 @@ final class AppModel {
         await publish()
     }
 
+    /// Fetches every message the servers still hold, including ones deleted on this device.
+    /// Returns the number of messages that were new to the device.
+    func syncAll() async -> Int {
+        store.ingestInbox()
+        var added = 0
+        for subscription in store.subscriptions() {
+            added += await refresh(subscription, full: true).count
+        }
+        await publish()
+        return added
+    }
+
     @discardableResult
-    func refresh(_ subscription: Subscription) async -> [Message] {
+    func refresh(_ subscription: Subscription, full: Bool = false) async -> [Message] {
         do {
-            let messages = try await servers.client(for: subscription.serverURL).poll(topic: subscription.topic, since: subscription.lastMessageID)
+            let since = full ? nil : subscription.lastMessageID
+            let messages = try await servers.client(for: subscription.serverURL).poll(topic: subscription.topic, since: since)
             return store.apply(messages, to: subscription)
         } catch {
             lastError = "\(subscription.title): \(error.localizedDescription)"

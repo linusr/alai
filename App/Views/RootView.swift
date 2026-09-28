@@ -5,6 +5,7 @@ struct RootView: View {
     @Environment(ServerDirectory.self) private var servers
     @Environment(Router.self) private var router
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
+    @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var router = router
@@ -22,6 +23,12 @@ struct RootView: View {
                 } else {
                     ContentUnavailableView("Select a Topic", systemImage: "bell.badge")
                 }
+            }
+            .sheet(item: Binding(
+                get: { router.openedMessageKey.flatMap { model.store.message(key: $0) } },
+                set: { if $0 == nil { router.openedMessageKey = nil } }
+            )) { stored in
+                OpenedMessage(stored: stored)
             }
             #if DEBUG
             .sheet(item: Binding(get: { router.debugScreen.map(DebugScreen.init) }, set: { router.debugScreen = $0?.id })) { screen in

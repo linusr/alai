@@ -15,7 +15,10 @@ other ntfy servers work through the live stream and background refresh.
 ## Features
 
 - Topics across multiple servers, with markdown, priorities, tags, attachments and action buttons
-- Browse a server's topics: your reservations, subscriptions synced from the web app and, for admins, every user's grants
+- Home screen switches between the topic list and a calendar: a week strip over an hour-by-hour timeline of every topic
+- Search across all messages on the device, and iPhone-wide Spotlight results that open the message
+- Sync All Messages fetches everything the servers still hold, within their cache duration
+- Browse a server's topics: your reservations and access grants, subscriptions synced from the web app and, for admins, every user's grants and topics with recent messages
 - Create topics with a reservation (private, read-only, write-only or public for other users)
 - Device keys: labeled access tokens with optional expiry, a ready-to-use `curl` command, and revocation
 - Home and Lock Screen widgets with recent notifications
@@ -127,3 +130,7 @@ extension behavior needs a device.
 ## Credits
 
 Tag-to-emoji mapping from GitHub's [gemoji](https://github.com/github/gemoji) (MIT).
+
+## License
+
+MIT, the same licence as the [ntfy iOS app](https://github.com/binwiederhier/ntfy-ios) whose protocol handling it builds on. See [LICENSE](LICENSE).

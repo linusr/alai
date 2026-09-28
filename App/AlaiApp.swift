@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreSpotlight
 
 @main
 struct AlaiApp: App {
@@ -15,6 +16,11 @@ struct AlaiApp: App {
                 .modelContainer(delegate.model.container)
                 .onOpenURL { url in
                     delegate.model.router.open(url)
+                }
+                .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                    if let key = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+                        delegate.model.router.openMessage(key: key)
+                    }
                 }
         }
         .onChange(of: scenePhase) { _, phase in

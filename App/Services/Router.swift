@@ -10,6 +10,15 @@ final class Router {
     var selectedTopicKey: String?
 
     static let allNotifications = "all"
+
+    /// A stored message key to show on top of its topic, e.g. from a Spotlight result.
+    var openedMessageKey: String?
+
+    func openMessage(key: String) {
+        guard let separator = key.lastIndex(of: "#") else { return }
+        selectedTopicKey = String(key[..<separator])
+        openedMessageKey = key
+    }
     #if DEBUG
     var debugScreen: String?
     #endif

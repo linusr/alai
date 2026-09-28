@@ -14,6 +14,8 @@ final class StoredMessage {
     var time: Date
     var isRead: Bool
     var payload: Data
+    /// Title, body, tags and attachment name, kept as plain text for search.
+    var searchText: String = ""
     var subscription: Subscription?
 
     init(message: Message, subscription: Subscription) {
@@ -22,7 +24,14 @@ final class StoredMessage {
         self.time = message.date
         self.isRead = false
         self.payload = (try? JSONEncoder().encode(message)) ?? Data()
+        self.searchText = Self.searchText(for: message)
         self.subscription = subscription
+    }
+
+    static func searchText(for message: Message) -> String {
+        [message.title, NotificationFormatter.bodyText(message), message.tags?.joined(separator: " "), message.attachment?.name]
+            .compactMap { $0 }
+            .joined(separator: "\n")
     }
 
     static func key(subscription: Subscription, sequenceID: String) -> String {
@@ -38,5 +47,6 @@ final class StoredMessage {
         time = message.date
         isRead = false
         payload = (try? JSONEncoder().encode(message)) ?? payload
+        searchText = Self.searchText(for: message)
     }
 }

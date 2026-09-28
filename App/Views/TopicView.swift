@@ -9,11 +9,23 @@ struct TopicView: View {
     @State private var isComposing = false
     @State private var isEditing = false
     @State private var isAddingDevice = false
+    @State private var query = ""
+
+    private var messages: [StoredMessage] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return subscription.messages }
+        return subscription.messages.filter { $0.searchText.localizedStandardContains(trimmed) }
+    }
 
     var body: some View {
-        MessageFeed(messages: subscription.messages, showsTopic: false) {
-            EmptyTopicView(subscription: subscription)
+        MessageFeed(messages: messages, showsTopic: false) {
+            if query.isEmpty {
+                EmptyTopicView(subscription: subscription)
+            } else {
+                ContentUnavailableView.search(text: query)
+            }
         }
+        .searchable(text: $query, prompt: "Search \(subscription.title)")
         .navigationTitle(subscription.title)
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await model.refresh(subscription) }

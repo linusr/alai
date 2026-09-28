@@ -82,7 +82,10 @@ private struct FeedCard: View {
             }
             .contextMenu {
                 Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.message }
-                Button("Delete", systemImage: "trash", role: .destructive) { context.delete(stored) }
+                Button("Delete", systemImage: "trash", role: .destructive) {
+                    SpotlightIndex.remove(keys: [stored.key])
+                    context.delete(stored)
+                }
             }
         }
     }
@@ -99,6 +102,27 @@ private struct TopicLabel: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.leading, 4)
+    }
+}
+
+// MARK: - Search
+
+/// Messages from every topic whose title, body, tags or attachment name contain the query, newest first.
+struct SearchResults: View {
+    let query: String
+    @Query private var results: [StoredMessage]
+
+    init(query: String) {
+        self.query = query
+        _results = Query(filter: #Predicate<StoredMessage> { $0.searchText.localizedStandardContains(query) }, sort: \.time, order: .reverse)
+    }
+
+    var body: some View {
+        ListFeed(messages: results.filter { $0.subscription != nil }, showsTopic: true)
+            .background(Color(.systemGroupedBackground))
+            .overlay {
+                if results.isEmpty { ContentUnavailableView.search(text: query) }
+            }
     }
 }
 
@@ -370,7 +394,7 @@ private struct TimelineEntry: View {
     }
 }
 
-private struct OpenedMessage: View {
+struct OpenedMessage: View {
     let stored: StoredMessage
     @Environment(\.dismiss) private var dismiss
 

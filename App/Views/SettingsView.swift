@@ -10,6 +10,8 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var isAddingServer = false
     @State private var authorization: UNAuthorizationStatus = .notDetermined
+    @State private var isSyncing = false
+    @State private var syncResult: String?
 
     var body: some View {
         NavigationStack {
@@ -36,6 +38,32 @@ struct SettingsView: View {
                     Button("Notification Settings", systemImage: "gear") {
                         openURL(URL(string: UIApplication.openNotificationSettingsURLString)!)
                     }
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            isSyncing = true
+                            let added = await model.syncAll()
+                            syncResult = added == 0 ? String(localized: "Already up to date") : String(localized: "\(added) messages added")
+                            isSyncing = false
+                        }
+                    } label: {
+                        HStack {
+                            Label("Sync All Messages", systemImage: "arrow.triangle.2.circlepath")
+                            Spacer()
+                            if isSyncing {
+                                ProgressView()
+                            } else if let syncResult {
+                                Text(syncResult).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .disabled(isSyncing)
+                } header: {
+                    Text("Messages")
+                } footer: {
+                    Text("Downloads every message your servers still hold for your topics, including ones deleted on this iPhone. Servers keep messages only for a limited time, set by their cache duration.")
                 }
 
                 Section("About") {
