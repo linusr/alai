@@ -90,6 +90,10 @@ def editable_version(client, app):
 
 
 def push_app_info(client, app):
+    # Alai shows the user's own messages; it carries no licensed third-party content
+    client.patch(f"/apps/{app['id']}", {
+        "type": "apps", "id": app["id"], "attributes": {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"},
+    })
     info = client.get(f"/apps/{app['id']}/appInfos")["data"][0]
     client.patch(f"/appInfos/{info['id']}", {
         "type": "appInfos", "id": info["id"],
@@ -157,7 +161,12 @@ def push_screenshots(client, localization):
             continue
         if display_type in existing:
             set_id = existing[display_type]["id"]
-            for old in client.get(f"/appScreenshotSets/{set_id}/appScreenshots")["data"]:
+            current = client.get(f"/appScreenshotSets/{set_id}/appScreenshots")["data"]
+            wanted = [(p.name, hashlib.md5(p.read_bytes()).hexdigest()) for p in files]
+            if [(c["attributes"]["fileName"], c["attributes"]["sourceFileChecksum"]) for c in current] == wanted:
+                print(f"screenshots: {display_type} unchanged")
+                continue
+            for old in current:
                 client.request("DELETE", f"/appScreenshots/{old['id']}")
         else:
             set_id = client.post("/appScreenshotSets", {
@@ -270,18 +279,22 @@ def submit(release="MANUAL"):
     client.patch(f"/appStoreVersions/{version['id']}", {
         "type": "appStoreVersions", "id": version["id"], "attributes": {"releaseType": release},
     })
-    submission = client.post("/reviewSubmissions", {
+    # A failed attempt leaves an unsubmitted draft behind; reuse it rather than piling up new ones
+    drafts = client.get(f"/apps/{app['id']}/reviewSubmissions", **{"filter[state]": "READY_FOR_REVIEW", "filter[platform]": "IOS"})["data"]
+    submission = drafts[0] if drafts else client.post("/reviewSubmissions", {
         "type": "reviewSubmissions",
         "attributes": {"platform": "IOS"},
         "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
     })["data"]
-    client.post("/reviewSubmissionItems", {
-        "type": "reviewSubmissionItems",
-        "relationships": {
-            "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
-            "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}},
-        },
-    })
+    items = client.get(f"/reviewSubmissions/{submission['id']}/items")["data"]
+    if not items:
+        client.post("/reviewSubmissionItems", {
+            "type": "reviewSubmissionItems",
+            "relationships": {
+                "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
+                "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}},
+            },
+        })
     result = client.patch(f"/reviewSubmissions/{submission['id']}", {
         "type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True},
     })["data"]
