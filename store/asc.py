@@ -260,6 +260,34 @@ def invite(email):
     print(f"TestFlight invitation sent to {email} (group {group['attributes']['name']})")
 
 
+def submit(release="MANUAL"):
+    """Submits the editable version for App Review. MANUAL waits for a Release click after approval."""
+    client = Client()
+    app = client.app()
+    version = editable_version(client, app)
+    if not client.get(f"/appStoreVersions/{version['id']}/build").get("data"):
+        sys.exit("Attach a build first: just listing <build>")
+    client.patch(f"/appStoreVersions/{version['id']}", {
+        "type": "appStoreVersions", "id": version["id"], "attributes": {"releaseType": release},
+    })
+    submission = client.post("/reviewSubmissions", {
+        "type": "reviewSubmissions",
+        "attributes": {"platform": "IOS"},
+        "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
+    })["data"]
+    client.post("/reviewSubmissionItems", {
+        "type": "reviewSubmissionItems",
+        "relationships": {
+            "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": submission["id"]}},
+            "appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}},
+        },
+    })
+    result = client.patch(f"/reviewSubmissions/{submission['id']}", {
+        "type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True},
+    })["data"]
+    print(f"Version {version['attributes']['versionString']} submitted for review ({result['attributes']['state']}), release {release.lower()}")
+
+
 def status():
     client = Client()
     app = client.app()
@@ -278,5 +306,7 @@ if __name__ == "__main__":
         listing(sys.argv[2] if len(sys.argv) > 2 else None)
     elif command == "invite":
         invite(sys.argv[2])
+    elif command == "submit":
+        submit(sys.argv[2] if len(sys.argv) > 2 else "MANUAL")
     else:
         status()

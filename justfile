@@ -61,6 +61,10 @@ listing build="":
 testflight-invite email="linusr@me.com":
     uv run -q store/asc.py invite {{ email }}
 
+# Submit the editable version for App Review; release is MANUAL (press Release after approval) or AFTER_APPROVAL
+submit release="MANUAL":
+    uv run -q store/asc.py submit {{ release }}
+
 # Show the App Store Connect app, versions and recent builds
 store-status:
     uv run -q store/asc.py status
