@@ -206,6 +206,14 @@ final class AppModel {
 
     // MARK: Read state and publishing
 
+    /// Marks one message read, importing it first if only the notification extension has seen it.
+    func markRead(_ message: Message, baseURL: URL) async {
+        store.ingestInbox()
+        guard let subscription = store.subscription(baseURL: baseURL, topic: message.topic) else { return }
+        store.markRead(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID))
+        await publish()
+    }
+
     func markRead(_ subscription: Subscription) async {
         store.markAllRead(subscription)
         let center = UNUserNotificationCenter.current()

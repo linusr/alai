@@ -83,6 +83,12 @@ struct MessageStore {
         }
     }
 
+    func markRead(key: String) {
+        guard let stored = stored(key: key), !stored.isRead else { return }
+        stored.isRead = true
+        try? context.save()
+    }
+
     func markAllRead(_ subscription: Subscription) {
         subscription.messages.filter { !$0.isRead }.forEach { $0.isRead = true }
         try? context.save()

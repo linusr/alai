@@ -43,24 +43,36 @@ public enum NotificationFormatter {
     }
 }
 
-/// Notification categories carrying a message's action buttons. iOS only shows buttons of registered
-/// categories, so each message with actions gets its own category, pruned once its notification is gone.
+/// Notification categories. Every notification offers Mark as Read; iOS only shows buttons of registered
+/// categories, so each message with its own actions gets a category, pruned once its notification is gone.
 public enum NotificationCategories {
     public static let prefix = "ntfy.actions."
+    /// Category of messages without their own actions.
+    public static let plain = "alai.message"
+    public static let markReadAction = "alai.markRead"
 
-    /// Registers the message's category and returns its identifier, or nil if it has no supported actions.
-    public static func register(for message: Message) async -> String? {
-        let actions = (message.actions ?? []).compactMap(notificationAction).prefix(3)
-        guard !actions.isEmpty else { return nil }
-        let identifier = prefix + message.id
+    /// Registers the message's category and returns its identifier.
+    public static func register(for message: Message) async -> String {
+        let actions = Array((message.actions ?? []).compactMap(notificationAction).prefix(3))
+        let identifier = actions.isEmpty ? plain : prefix + message.id
         let center = UNUserNotificationCenter.current()
         let delivered = Set(await center.deliveredNotifications().map(\.request.content.categoryIdentifier))
         var categories = await center.notificationCategories().filter {
             !$0.identifier.hasPrefix(prefix) || delivered.contains($0.identifier)
         }
-        categories.insert(UNNotificationCategory(identifier: identifier, actions: Array(actions), intentIdentifiers: []))
+        categories.insert(UNNotificationCategory(identifier: identifier, actions: actions + [markRead], intentIdentifiers: []))
         center.setNotificationCategories(categories)
         return identifier
+    }
+
+    /// Runs in the background, without opening the app.
+    private static var markRead: UNNotificationAction {
+        UNNotificationAction(
+            identifier: markReadAction,
+            title: String(localized: "Mark as Read"),
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "checkmark.circle")
+        )
     }
 
     private static func notificationAction(_ action: Action) -> UNNotificationAction? {

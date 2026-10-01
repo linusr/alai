@@ -23,9 +23,7 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
             if let message = await resolve(payload) {
                 NotificationFormatter.apply(message, baseURL: payload.baseURL, to: content)
                 try? Inbox().deposit(message, baseURL: payload.baseURL)
-                if let category = await NotificationCategories.register(for: message) {
-                    content.categoryIdentifier = category
-                }
+                content.categoryIdentifier = await NotificationCategories.register(for: message)
                 if let attachment = await imageAttachment(for: message, baseURL: payload.baseURL) {
                     content.attachments = [attachment]
                 }

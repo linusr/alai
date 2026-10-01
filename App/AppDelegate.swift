@@ -77,6 +77,12 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     /// Navigates first and completes before any network work, so a slow action cannot stall the tap.
     private func handle(_ payload: PushPayload, actionIdentifier: String, requestIdentifier: String, threadIdentifier: String, completion: () -> Void) async {
         let message = payload.message
+        if actionIdentifier == NotificationCategories.markReadAction {
+            await model.markRead(message, baseURL: payload.baseURL)
+            UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [requestIdentifier])
+            completion()
+            return
+        }
         if let action = message.actions?.first(where: { $0.id == actionIdentifier }) {
             completion()
             await ActionPerformer.perform(action)
