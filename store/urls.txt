@@ -1,3 +1,3 @@
-support_url=https://4vr.me/alai/support.html
-privacy_url=https://4vr.me/alai/privacy.html
-marketing_url=https://4vr.me/alai/
+support_url=https://apphut.ca/alai/support.html
+privacy_url=https://apphut.ca/alai/privacy.html
+marketing_url=https://apphut.ca/alai/

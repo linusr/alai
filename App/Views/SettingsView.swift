@@ -68,10 +68,10 @@ struct SettingsView: View {
 
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
-                    Link(destination: URL(string: "https://4vr.me/alai/support.html")!) {
+                    Link(destination: URL(string: "https://apphut.ca/alai/support.html")!) {
                         Label("Help & Support", systemImage: "questionmark.circle")
                     }
-                    Link(destination: URL(string: "https://4vr.me/alai/privacy.html")!) {
+                    Link(destination: URL(string: "https://apphut.ca/alai/privacy.html")!) {
                         Label("Privacy Policy", systemImage: "hand.raised")
                     }
                 }
