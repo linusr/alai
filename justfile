@@ -65,6 +65,10 @@ testflight-invite email="linusr@me.com":
 submit release="MANUAL":
     uv run -q store/asc.py submit {{ release }}
 
+# Publish an approved version that is waiting for a manual release
+release:
+    uv run -q store/asc.py release
+
 # Show the App Store Connect app, versions and recent builds
 store-status:
     uv run -q store/asc.py status

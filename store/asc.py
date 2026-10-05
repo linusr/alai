@@ -301,6 +301,21 @@ def submit(release="MANUAL"):
     print(f"Version {version['attributes']['versionString']} submitted for review ({result['attributes']['state']}), release {release.lower()}")
 
 
+def release():
+    """Publishes an approved version that is waiting for a manual release."""
+    client = Client()
+    app = client.app()
+    versions = client.get(f"/apps/{app['id']}/appStoreVersions", **{"filter[appStoreState]": "PENDING_DEVELOPER_RELEASE"})["data"]
+    if not versions:
+        sys.exit("No approved version is waiting for release")
+    version = versions[0]
+    client.post("/appStoreVersionReleaseRequests", {
+        "type": "appStoreVersionReleaseRequests",
+        "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}}},
+    })
+    print(f"Version {version['attributes']['versionString']} released")
+
+
 def status():
     client = Client()
     app = client.app()
@@ -319,6 +334,8 @@ if __name__ == "__main__":
         listing(sys.argv[2] if len(sys.argv) > 2 else None)
     elif command == "invite":
         invite(sys.argv[2])
+    elif command == "release":
+        release()
     elif command == "submit":
         submit(sys.argv[2] if len(sys.argv) > 2 else "MANUAL")
     else:
