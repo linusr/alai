@@ -2,7 +2,9 @@
 
 <p align="center"><img src="App/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="128" alt="Alai icon"></p>
 
-**A native iOS and watchOS client for self-hosted [ntfy](https://ntfy.sh) servers.**
+**A native iPhone and Apple Watch app for your self-hosted [Alai server](https://github.com/linusr/alai-server).** It also works with other ntfy-compatible servers.
+
+<p align="center"><a href="https://apps.apple.com/app/alai-notify/id6817074096"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="40"></a></p>
 
 *Alai* is Tamil for "wave".
 
