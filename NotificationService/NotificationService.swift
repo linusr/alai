@@ -22,7 +22,10 @@ final class NotificationService: UNNotificationServiceExtension, @unchecked Send
         work = Task {
             if let message = await resolve(payload) {
                 NotificationFormatter.apply(message, baseURL: payload.baseURL, to: content)
-                try? Inbox().deposit(message, baseURL: payload.baseURL)
+                let inbox = Inbox()
+                try? inbox.deposit(message, baseURL: payload.baseURL)
+                // Unread as of the app's last update, plus everything pushed since; the app corrects it on launch
+                content.badge = NSNumber(value: RecentSnapshot.load().unreadCount + inbox.count)
                 content.categoryIdentifier = await NotificationCategories.register(for: message)
                 if let attachment = await imageAttachment(for: message, baseURL: payload.baseURL) {
                     content.attachments = [attachment]

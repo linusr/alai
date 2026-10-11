@@ -72,6 +72,16 @@ import UserNotifications
 }
 
 @Suite struct InboxTests {
+    @Test func countsPendingItems() throws {
+        let inbox = Inbox(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
+        #expect(inbox.count == 0)
+        try inbox.deposit(Message(id: "a", time: 1, event: "message", topic: "t", message: "one"), baseURL: URL(string: "https://example.com")!)
+        try inbox.deposit(Message(id: "b", time: 2, event: "message", topic: "t", message: "two"), baseURL: URL(string: "https://example.com")!)
+        #expect(inbox.count == 2)
+        _ = inbox.drain()
+        #expect(inbox.count == 0)
+    }
+
     @Test func depositAndDrainInOrder() throws {
         let inbox = Inbox(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))
         let url = URL(string: "https://ntfy.example.com")!

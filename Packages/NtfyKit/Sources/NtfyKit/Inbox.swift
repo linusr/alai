@@ -20,6 +20,12 @@ public struct Inbox: Sendable {
         try data.write(to: directory.appending(path: "\(message.time)-\(message.id).json"), options: .atomic)
     }
 
+    /// Messages waiting for the app to import them.
+    public var count: Int {
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        return files.count { $0.pathExtension == "json" }
+    }
+
     /// Returns deposited items oldest first and deletes them.
     public func drain() -> [Item] {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
