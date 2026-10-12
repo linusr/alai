@@ -46,6 +46,17 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<true/>
 	</dict>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>checkmark.circle</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Mark All as Read</string>
+			<key>UIApplicationShortcutItemType</key>
+			<string>me.4vr.alai.markAllRead</string>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

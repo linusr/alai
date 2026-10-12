@@ -1,20 +1,13 @@
 import UIKit
 
-/// Home Screen quick actions. Mark All as Read appears only while something is unread.
+/// Home Screen quick actions, declared statically in Info.plist so they exist before the first launch.
 @MainActor
 enum QuickActions {
     static let markAllRead = "me.4vr.alai.markAllRead"
 
-    static func update(unread: Int) {
-        UIApplication.shared.shortcutItems = unread > 0 ? [
-            UIApplicationShortcutItem(
-                type: markAllRead,
-                localizedTitle: String(localized: "Mark All as Read"),
-                localizedSubtitle: String(localized: "\(unread) unread"),
-                icon: UIApplicationShortcutIcon(systemImageName: "checkmark.circle"),
-                userInfo: nil
-            ),
-        ] : []
+    /// Removes dynamic items registered by 1.1 builds, which would duplicate the static one.
+    static func clearDynamic() {
+        UIApplication.shared.shortcutItems = []
     }
 
     @discardableResult
@@ -25,8 +18,6 @@ enum QuickActions {
     }
 }
 
-/// Receives quick actions chosen while the app is already running; cold launches arrive in
-/// `AppDelegate.application(_:configurationForConnecting:options:)`.
 final class QuickActionSceneDelegate: NSObject, UIWindowSceneDelegate {
     func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         guard let model = AppDelegate.shared?.model else { return false }

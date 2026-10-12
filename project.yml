@@ -64,6 +64,10 @@ targets:
             CFBundleURLSchemes: [alai]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
+        UIApplicationShortcutItems:
+          - UIApplicationShortcutItemType: me.4vr.alai.markAllRead
+            UIApplicationShortcutItemTitle: Mark All as Read
+            UIApplicationShortcutItemIconSymbolName: checkmark.circle
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
     entitlements:
       path: App/Alai.entitlements

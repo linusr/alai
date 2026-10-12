@@ -234,7 +234,6 @@ final class AppModel {
         let subscriptions = store.subscriptions()
         let unread = subscriptions.reduce(0) { $0 + $1.unreadCount }
         try? await UNUserNotificationCenter.current().setBadgeCount(unread)
-        QuickActions.update(unread: unread)
 
         let entries = subscriptions.flatMap { subscription in
             subscription.messages.compactMap { stored in
