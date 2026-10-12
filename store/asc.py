@@ -9,6 +9,7 @@ Credentials come from ~/.appstoreconnect/alai.env (ASC_KEY_ID, ASC_ISSUER_ID) an
 """
 import hashlib
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -82,11 +83,23 @@ def urls():
     return dict(line.split("=", 1) for line in (STORE / "urls.txt").read_text().split())
 
 
+def marketing_version():
+    project = (STORE.parent / "project.yml").read_text()
+    return re.search(r'MARKETING_VERSION: "([^"]+)"', project).group(1)
+
+
 def editable_version(client, app):
+    """The version being prepared, created from project.yml's MARKETING_VERSION when there is none."""
     versions = client.get(f"/apps/{app['id']}/appStoreVersions", **{"filter[appStoreState]": "PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED"})["data"]
-    if not versions:
-        sys.exit("No editable App Store version; create one in App Store Connect first")
-    return versions[0]
+    if versions:
+        return versions[0]
+    version = client.post("/appStoreVersions", {
+        "type": "appStoreVersions",
+        "attributes": {"platform": "IOS", "versionString": marketing_version()},
+        "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
+    })["data"]
+    print(f"created version {version['attributes']['versionString']}")
+    return version
 
 
 def push_app_info(client, app):
@@ -94,7 +107,9 @@ def push_app_info(client, app):
     client.patch(f"/apps/{app['id']}", {
         "type": "apps", "id": app["id"], "attributes": {"contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"},
     })
-    info = client.get(f"/apps/{app['id']}/appInfos")["data"][0]
+    # While an update is pending there are two app infos, and only the unreleased one is editable
+    infos = client.get(f"/apps/{app['id']}/appInfos")["data"]
+    info = next((i for i in infos if i["attributes"]["state"] != "READY_FOR_DISTRIBUTION"), infos[0])
     client.patch(f"/appInfos/{info['id']}", {
         "type": "appInfos", "id": info["id"],
         "relationships": {
@@ -117,7 +132,7 @@ def push_age_rating(client, info, answers):
     print("age rating declaration")
 
 
-def push_version(client, version):
+def push_version(client, app, version):
     client.patch(f"/appStoreVersions/{version['id']}", {
         "type": "appStoreVersions", "id": version["id"],
         "attributes": {"copyright": read("copyright.txt")},
@@ -130,8 +145,11 @@ def push_version(client, version):
         "supportUrl": urls()["support_url"],
         "marketingUrl": urls()["marketing_url"],
     }
+    # App Store Connect rejects What's New on an app's first version
+    if len(client.get(f"/apps/{app['id']}/appStoreVersions")["data"]) > 1:
+        attributes["whatsNew"] = read("release_notes.txt")
     client.patch(f"/appStoreVersionLocalizations/{localization['id']}", {"type": "appStoreVersionLocalizations", "id": localization["id"], "attributes": attributes})
-    print("version: copyright, description, keywords, promotional text, URLs")
+    print(f"version: copyright, description, keywords, promotional text, URLs{', what\'s new' if 'whatsNew' in attributes else ''}")
     return localization
 
 
@@ -234,7 +252,7 @@ def listing(build_number=None):
     version = editable_version(client, app)
     info = push_app_info(client, app)
     push_age_rating(client, info, AGE_RATING)
-    localization = push_version(client, version)
+    localization = push_version(client, app, version)
     push_screenshots(client, localization)
     push_review_details(client, version)
     if build_number:

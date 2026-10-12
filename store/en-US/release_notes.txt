@@ -1,1 +1,2 @@
-First release.
+• Mark All as Read: long-press the app icon to clear every unread message at once.
+• The app icon badge now counts new notifications as they arrive, even while Alai is closed.
