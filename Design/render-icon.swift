@@ -89,8 +89,88 @@ func render(_ variant: Variant) throws {
     try bitmap.representation(using: .png, properties: [:])!.write(to: outputDirectory.appending(path: "\(variant.rawValue).png"))
 }
 
+// MARK: - Icon Composer document
+
+/// SVG path for a wave band in Icon Composer's top-left-origin coordinates.
+func waveSVG(baseline: CGFloat, amplitude: CGFloat, phase: CGFloat, wavelength: CGFloat) -> String {
+    let s = CGFloat(size)
+    var points = [String]()
+    var x: CGFloat = -20
+    while x <= s + 20 {
+        let y = baseline + amplitude * sin((x / wavelength + phase) * 2 * .pi)
+        points.append(String(format: "%.1f %.1f", x, s - y))
+        x += 4
+    }
+    return "M-20 \(Int(s) + 20) L" + points.joined(separator: " L") + " L\(Int(s) + 20) \(Int(s) + 20) Z"
+}
+
+func svg(_ body: String) -> String {
+    "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 \(size) \(size)\">\(body)</svg>\n"
+}
+
+func hexString(_ hex: UInt32) -> String {
+    let r = Double((hex >> 16) & 0xFF) / 255, g = Double((hex >> 8) & 0xFF) / 255, b = Double(hex & 0xFF) / 255
+    return String(format: "srgb:%.5f,%.5f,%.5f,1.00000", r, g, b)
+}
+
+/// Writes AppIcon.icon: background fill plus sun and wave layers, so the system renders the
+/// Liquid Glass, clear and tinted appearances from the layers rather than a flat image.
+func writeIconDocument() throws {
+    let s = CGFloat(size)
+    let document = outputDirectory.appending(path: "AppIcon.icon")
+    let assets = document.appending(path: "Assets")
+    try? FileManager.default.removeItem(at: document)
+    try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+
+    // Layer opacity carries the translucency, since a layer's fill replaces the SVG's own colors
+    let center = (x: s * 0.5, y: s - s * 0.64)
+    let sun: [(name: String, radius: CGFloat, opacity: Double)] = [("Sun", s * 0.115, 1), ("Halo Inner", s * 0.19, 0.16), ("Halo Outer", s * 0.26, 0.10)]
+    let waves: [(name: String, baseline: CGFloat, amplitude: CGFloat, phase: CGFloat, opacity: Double)] = [
+        ("Wave Front", s * 0.25, s * 0.055, 0.80, 1),
+        ("Wave Middle", s * 0.35, s * 0.045, 0.45, 0.60),
+        ("Wave Back", s * 0.44, s * 0.035, 0.10, 0.35),
+    ]
+    for disc in sun {
+        try svg("<circle cx=\"\(center.x)\" cy=\"\(center.y)\" r=\"\(disc.radius)\" fill=\"#fff\"/>")
+            .write(to: assets.appending(path: "\(disc.name).svg"), atomically: true, encoding: .utf8)
+    }
+    for band in waves {
+        try svg("<path d=\"\(waveSVG(baseline: band.baseline, amplitude: band.amplitude, phase: band.phase, wavelength: s * 0.55))\" fill=\"#fff\"/>")
+            .write(to: assets.appending(path: "\(band.name).svg"), atomically: true, encoding: .utf8)
+    }
+
+    func layer(_ name: String, opacity: Double, light: UInt32, dark: UInt32) -> [String: Any] {
+        [
+            "name": name,
+            "image-name": "\(name).svg",
+            "opacity": opacity,
+            "fill-specializations": [
+                ["value": ["solid": hexString(light)]],
+                ["appearance": "dark", "value": ["solid": hexString(dark)]],
+            ],
+        ]
+    }
+    // Groups are listed front to back
+    let icon: [String: Any] = [
+        "fill-specializations": [
+            ["value": ["linear-gradient": [hexString(0x60A5FA), hexString(0x1E3A8A)], "orientation": ["start": ["x": 0.2, "y": 0], "stop": ["x": 0.5, "y": 1]]]],
+            ["appearance": "dark", "value": ["linear-gradient": [hexString(0x111C33), hexString(0x060A14)], "orientation": ["start": ["x": 0.5, "y": 0], "stop": ["x": 0.5, "y": 1]]]],
+        ],
+        "groups": [
+            ["name": "Waves", "layers": waves.map { layer($0.name, opacity: $0.opacity, light: 0xDBEAFE, dark: 0x60A5FA) },
+             "shadow": ["kind": "neutral", "opacity": 0.5], "translucency": ["enabled": true, "value": 0.3]],
+            ["name": "Sun", "layers": sun.map { layer($0.name, opacity: $0.opacity, light: 0xFFFFFF, dark: 0x93C5FD) },
+             "shadow": ["kind": "neutral", "opacity": 0.5], "translucency": ["enabled": true, "value": 0.2]],
+        ],
+        "supported-platforms": ["squares": ["iOS"]],
+    ]
+    let json = try JSONSerialization.data(withJSONObject: icon, options: [.prettyPrinted, .sortedKeys])
+    try json.write(to: document.appending(path: "icon.json"))
+}
+
 try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 for variant in Variant.allCases {
     try render(variant)
 }
-print("Rendered \(Variant.allCases.count) icons to \(outputDirectory.path())")
+try writeIconDocument()
+print("Rendered \(Variant.allCases.count) icons and AppIcon.icon to \(outputDirectory.path())")

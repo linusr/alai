@@ -1,0 +1,182 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.37647,0.64706,0.98039,1.00000",
+          "srgb:0.11765,0.22745,0.54118,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.20000000000000001,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 1
+          }
+        }
+      }
+    },
+    {
+      "appearance" : "dark",
+      "value" : {
+        "linear-gradient" : [
+          "srgb:0.06667,0.10980,0.20000,1.00000",
+          "srgb:0.02353,0.03922,0.07843,1.00000"
+        ],
+        "orientation" : {
+          "start" : {
+            "x" : 0.5,
+            "y" : 0
+          },
+          "stop" : {
+            "x" : 0.5,
+            "y" : 1
+          }
+        }
+      }
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Wave Front.svg",
+          "name" : "Wave Front",
+          "opacity" : 1
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Wave Middle.svg",
+          "name" : "Wave Middle",
+          "opacity" : 0.59999999999999998
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Wave Back.svg",
+          "name" : "Wave Back",
+          "opacity" : 0.34999999999999998
+        }
+      ],
+      "name" : "Waves",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.29999999999999999
+      }
+    },
+    {
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Sun.svg",
+          "name" : "Sun",
+          "opacity" : 1
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Halo Inner.svg",
+          "name" : "Halo Inner",
+          "opacity" : 0.16
+        },
+        {
+          "fill-specializations" : [
+            {
+              "value" : {
+                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Halo Outer.svg",
+          "name" : "Halo Outer",
+          "opacity" : 0.10000000000000001
+        }
+      ],
+      "name" : "Sun",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.20000000000000001
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "iOS"
+    ]
+  }
+}
