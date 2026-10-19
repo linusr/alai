@@ -7,7 +7,7 @@ struct TopicListView: View {
     @Environment(Router.self) private var router
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @State private var isAddingTopic = false
-    @State private var isBrowsing = false
+    @State private var browsingServer: URL?
     @Environment(ServerDirectory.self) private var servers
     @State private var pendingUnsubscribe: Subscription?
 
@@ -20,18 +20,7 @@ struct TopicListView: View {
             .navigationTitle("Topics")
             .homeActions()
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
-            .sheet(isPresented: $isBrowsing) {
-                if let server = servers.defaultServer {
-                    NavigationStack {
-                        BrowseTopicsView(server: server)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button("Done", role: .confirm) { isBrowsing = false }
-                                }
-                            }
-                    }
-                }
-            }
+            .browseTopicsSheet(server: $browsingServer)
             .confirmationDialog(
                 "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
                 isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } }),
@@ -88,8 +77,8 @@ struct TopicListView: View {
                 } actions: {
                     Button("Add Topic") { isAddingTopic = true }
                         .buttonStyle(.glassProminent)
-                    if servers.defaultServer != nil {
-                        Button("Browse Server Topics") { isBrowsing = true }
+                    if let server = servers.defaultServer {
+                        Button("Browse Server Topics") { browsingServer = server }
                     }
                 }
             }
@@ -181,10 +170,31 @@ extension View {
     func homeActions() -> some View {
         modifier(HomeActions())
     }
+
+    /// Presents a server's topics to subscribe to while `server` is set.
+    func browseTopicsSheet(server: Binding<URL?>) -> some View {
+        sheet(item: Binding(get: { server.wrappedValue.map(BrowseTarget.init) }, set: { server.wrappedValue = $0?.url })) { target in
+            NavigationStack {
+                BrowseTopicsView(server: target.url)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done", role: .confirm) { server.wrappedValue = nil }
+                        }
+                    }
+            }
+        }
+    }
+}
+
+private struct BrowseTarget: Identifiable {
+    let url: URL
+    var id: URL { url }
 }
 
 private struct HomeActions: ViewModifier {
+    @Environment(ServerDirectory.self) private var servers
     @State private var isAddingTopic = false
+    @State private var browsingServer: URL?
     @State private var isShowingSettings = false
 
     func body(content: Content) -> some View {
@@ -194,10 +204,19 @@ private struct HomeActions: ViewModifier {
                     Button("Settings", systemImage: "gearshape") { isShowingSettings = true }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Add Topic", systemImage: "plus") { isAddingTopic = true }
+                    Menu("Add Topic", systemImage: "plus") {
+                        Button("New Topic", systemImage: "square.and.pencil") { isAddingTopic = true }
+                        Section("Subscribe to Existing") {
+                            ForEach(servers.servers, id: \.self) { server in
+                                Button(servers.servers.count > 1 ? "Browse \(ServerURL.shortDisplay(server))" : "Browse Topics",
+                                       systemImage: "list.bullet.rectangle") { browsingServer = server }
+                            }
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
+            .browseTopicsSheet(server: $browsingServer)
             .sheet(isPresented: $isShowingSettings) { SettingsView() }
     }
 }
