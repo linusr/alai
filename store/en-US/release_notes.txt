@@ -1,2 +1,2 @@
-• Mark All as Read: long-press the app icon to clear every unread message at once.
-• The app icon badge now counts new notifications as they arrive, even while Alai is closed.
+• A new app icon built for Liquid Glass, with proper Dark, Clear and Tinted styles.
+• Browse and subscribe to a server's existing topics straight from the + button.
