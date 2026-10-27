@@ -18,7 +18,7 @@ final class CloudSync {
     }
 
     /// A server (no topic) or topic record, or its tombstone when `isDeleted` is set.
-    private struct Record: Codable {
+    private struct Record: Codable, Equatable {
         let server: String
         let topic: String?
         var fields: TopicFields?
@@ -32,6 +32,9 @@ final class CloudSync {
     private static let syncedKey = "cloudSyncedState"
     /// Long enough for every device to have seen a removal; older tombstones are deleted to stay within iCloud's 1024-key limit.
     private static let tombstoneLifetime: TimeInterval = 30 * 86_400
+    /// A record this device wrote within this window but iCloud lacks was discarded before iCloud's first
+    /// download and is written again. An older one was removed elsewhere and its tombstone has expired.
+    private static let rewriteWindow: TimeInterval = 86_400
 
     private let store = NSUbiquitousKeyValueStore.default
     private unowned let model: AppModel
@@ -72,25 +75,38 @@ final class CloudSync {
     /// writes iCloud discarded before its first download finished.
     func upload() {
         guard isEnabled, !isApplying else { return }
-        var synced = syncedState()
+        let previous = syncedState()
+        var synced = previous
         let local = localRecords(synced: synced)
         let remote = remoteRecords()
+        // Keys whose records this version cannot decode still count as present, so it never overwrites them
+        let remoteKeys = Set(store.dictionaryRepresentation.keys)
         let now = Date.now
         for (key, record) in local {
-            guard synced[key]?.fields != record.fields || synced[key] == nil || remote[key] == nil else { continue }
+            let changedHere = synced[key] == nil || synced[key]?.fields != record.fields
+            let discarded = !remoteKeys.contains(key) && synced[key].map { now.timeIntervalSince($0.updated) < Self.rewriteWindow } ?? false
+            guard changedHere || discarded else { continue }
             var written = record
             written.updated = now
             write(written, key: key)
             synced[key] = written
         }
         for (key, record) in synced where local[key] == nil {
-            write(Record(server: record.server, topic: record.topic, fields: nil, isDeleted: true, updated: now), key: key)
+            // An existing tombstone keeps its date, so a late device cannot extend it over a newer subscription
+            if remote[key]?.isDeleted != true {
+                write(Record(server: record.server, topic: record.topic, fields: nil, isDeleted: true, updated: now), key: key)
+            }
             synced[key] = nil
         }
         for (key, record) in remote where record.isDeleted && now.timeIntervalSince(record.updated) > Self.tombstoneLifetime {
             store.removeObject(forKey: key)
         }
-        saveSynced(synced)
+        if synced != previous { saveSynced(synced) }
+    }
+
+    /// Forgets what this device last synced, so its next upload treats every local item as new.
+    static func forgetSyncedState() {
+        UserDefaults.standard.removeObject(forKey: syncedKey)
     }
 
     // MARK: Records
@@ -180,15 +196,18 @@ final class CloudSync {
             guard let topic = record.topic, let server = URL(string: record.server) else { continue }
             let existing = subscriptions.first { $0.baseURL == record.server && $0.topic == topic }
             if record.isDeleted {
+                guard honorTombstones else { continue }
                 // A topic subscribed after the removal was recorded is a new subscription, not a stale one
-                if honorTombstones, let existing, existing.createdAt < record.updated {
+                if let existing, existing.createdAt < record.updated {
                     if model.router.selectedTopicKey == existing.key { model.router.topicPath = [] }
                     SpotlightIndex.remove(topicKey: existing.key)
                     context.delete(existing)
                     changed = true
-                    synced[key] = nil
                 }
+                if existing == nil || existing?.isDeleted == true { synced[key] = nil }
             } else if let fields = record.fields, synced[key]?.fields != fields || existing == nil {
+                // Synced but gone locally: an unsubscribe on this device that has not been uploaded yet
+                if existing == nil, synced[key] != nil { continue }
                 // Topics arrive under their server, never on their own
                 guard model.servers.servers.contains(server) else { continue }
                 if let existing {

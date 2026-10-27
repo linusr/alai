@@ -8,7 +8,7 @@ public struct CredentialStore: Sendable {
     private let accessGroup: String?
     private let synchronizable: Bool
 
-    public init(accessGroup: String? = SharedContainer.appGroup, synchronizable: Bool = true) {
+    public init(accessGroup: String? = SharedContainer.appGroup, synchronizable: Bool = false) {
         self.accessGroup = accessGroup
         self.synchronizable = synchronizable
     }
@@ -39,13 +39,13 @@ public struct CredentialStore: Sendable {
     }
 
     /// Moves this device's own credential into iCloud Keychain. The synced copy is added before the local one
-    /// is deleted, so a failure leaves the local credential in place; a credential another device already
-    /// synced for the server is kept rather than overwritten.
+    /// is deleted, so a failure leaves the local credential in place. When another device already synced a
+    /// credential for the server, that one is kept and the local copy dropped, so later changes reach every device.
     public func makeSynchronizable(for baseURL: URL) {
-        guard synchronizable, let credential = read(baseURL, synchronizable: false),
-              read(baseURL, synchronizable: true) == nil,
-              (try? add(credential, for: baseURL, synchronizable: true)) != nil
-        else { return }
+        guard synchronizable, let credential = read(baseURL, synchronizable: false) else { return }
+        if read(baseURL, synchronizable: true) == nil {
+            guard (try? add(credential, for: baseURL, synchronizable: true)) != nil else { return }
+        }
         var local = baseQuery(baseURL)
         local[kSecAttrSynchronizable as String] = false
         SecItemDelete(local as CFDictionary)

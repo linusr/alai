@@ -85,6 +85,7 @@ final class AppModel {
     }
 
     func unsubscribe(_ subscription: Subscription) async {
+        guard !subscription.isDeleted else { return }
         SpotlightIndex.remove(topicKey: subscription.key)
         container.mainContext.delete(subscription)
         try? container.mainContext.save()
@@ -176,9 +177,16 @@ final class AppModel {
     func receive(_ message: Message, from server: URL) async {
         guard let subscription = store.subscription(baseURL: server, topic: message.topic) else { return }
         guard !store.apply([message], to: subscription).isEmpty else { return }
-        if router.selectedTopicKey == subscription.key {
+        let isOnScreen = router.selectedTopicKey == subscription.key
+        if isOnScreen {
             store.markAllRead(subscription)
         }
+        #if os(macOS)
+        // The Mac has no background refresh: the stream it keeps open notifies for servers without APNs
+        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered {
+            await LocalNotifications.post(message, baseURL: server)
+        }
+        #endif
         await publish()
     }
 

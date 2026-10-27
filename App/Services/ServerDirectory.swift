@@ -10,10 +10,11 @@ final class ServerDirectory {
     private let defaults = SharedContainer.defaults
     private let credentials: CredentialStore = {
         #if DEBUG
-        // Seeded runs use demo accounts, whose passwords must stay off iCloud Keychain
-        if UserDefaults.standard.string(forKey: "seedServer") != nil { return CredentialStore(synchronizable: false) }
+        // Seeded and reset runs must neither put demo passwords in iCloud Keychain nor delete real ones from it
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") { return CredentialStore() }
         #endif
-        return CredentialStore()
+        return CredentialStore(synchronizable: true)
     }()
 
     private(set) var servers: [URL]

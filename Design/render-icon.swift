@@ -162,7 +162,7 @@ func writeIconDocument() throws {
             ["name": "Sun", "layers": sun.map { layer($0.name, opacity: $0.opacity, light: 0xFFFFFF, dark: 0x93C5FD) },
              "shadow": ["kind": "neutral", "opacity": 0.5], "translucency": ["enabled": true, "value": 0.2]],
         ],
-        "supported-platforms": ["squares": ["iOS"]],
+        "supported-platforms": ["squares": "shared"],
     ]
     let json = try JSONSerialization.data(withJSONObject: icon, options: [.prettyPrinted, .sortedKeys])
     try json.write(to: document.appending(path: "icon.json"))

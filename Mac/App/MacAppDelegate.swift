@@ -6,16 +6,18 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     private lazy var notifications = NotificationHandler(model: model)
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    /// The delegate must be in place before launch finishes to receive the tap that launched the app.
+    func applicationWillFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = notifications
+    }
+
+    /// Becoming active right after launch runs the first refresh.
+    func applicationDidFinishLaunching(_ notification: Notification) {
         model.startSync()
         NSApplication.shared.registerForRemoteNotifications()
         // A Mac app stays running with its window closed, so it keeps the live stream open throughout
         model.setLiveUpdates(active: true)
-        Task {
-            await model.refreshAll()
-            await model.registerForPush()
-        }
+        Task { await model.registerForPush() }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

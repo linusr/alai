@@ -22,7 +22,7 @@ struct RootView: View {
                             .navigationDestination(for: String.self) { key in
                                 if key == Router.allNotifications {
                                     AllNotificationsView()
-                                } else if let subscription = subscriptions.first(where: { $0.key == key }) {
+                                } else if let subscription = subscriptions.first(where: { !$0.isDeleted && $0.key == key }) {
                                     TopicView(subscription: subscription)
                                         .id(subscription.key)
                                 } else {

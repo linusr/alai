@@ -139,7 +139,7 @@ struct MacRootView: View {
                 AllNotificationsView()
             } else if key == Router.calendar {
                 CalendarHome().navigationTitle("Calendar")
-            } else if let subscription = subscriptions.first(where: { $0.key == key }) {
+            } else if let subscription = subscriptions.first(where: { !$0.isDeleted && $0.key == key }) {
                 TopicView(subscription: subscription).id(subscription.key)
             } else {
                 ContentUnavailableView("Topic Not Found", systemImage: "bell.slash")

@@ -26,7 +26,7 @@ other ntfy servers work through the live stream and background refresh.
 - Home and Lock Screen widgets with recent notifications
 - Apple Watch app that fetches messages itself, with complications for the latest message and unread count
 - Mac app with a sidebar of topics, menu commands and keyboard shortcuts; it is the same App Store app as the iPhone
-  app (universal purchase) and keeps receiving messages with its window closed
+  app (universal purchase) and keeps receiving messages with its window closed, as long as the app is running
 - Servers, sign-ins and topics sync between the iPhone and Mac through iCloud: credentials through iCloud Keychain,
   servers and topics (name, icon, color) through iCloud key-value storage. Read state and muting stay per device.
   Removing a server or unsubscribing applies to every device on the iCloud account
@@ -45,8 +45,8 @@ topic's name can read and publish to it, so reserve topics whose names must stay
 | Live stream | App in the foreground on iPhone; while the Mac app runs | Instant |
 | Background refresh | iPhone app in the background, no APNs | iOS schedules it, from about 15 minutes to hours |
 
-Background refresh posts local notifications for new messages on topics whose server is not registered for APNs, so
-both paths never notify twice. Notifications on the iPhone are mirrored to the watch.
+Background refresh on the iPhone, and the live stream on the Mac, post local notifications for new messages on topics
+whose server is not registered for APNs, so both paths never notify twice. Notifications on the iPhone are mirrored to the watch.
 
 ## Server compatibility
 
@@ -69,8 +69,8 @@ not currently proposed.
 ## Requirements
 
 - Xcode 27, iOS 26+, macOS 26+, watchOS 26+
-- An Apple Account for signing. A free account covers everything except APNs push, which needs an auth key from the
-  paid Apple Developer Program; without it the app runs on the live stream and background refresh
+- A paid Apple Developer Program membership for signing: iCloud sync and APNs push need capabilities free accounts
+  do not have
 - [mise](https://mise.jdx.dev), which installs the pinned XcodeGen, and [just](https://just.systems) for the build recipes
 
 ## Setup

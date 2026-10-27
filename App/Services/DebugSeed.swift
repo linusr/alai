@@ -7,7 +7,7 @@ import NtfyKit
 /// `-seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts -openTopic alerts`
 /// (`-openTopic all` opens All Notifications, `-homeTab calendar|search` picks the tab, `-searchQuery disk` prefills search),
 /// plus `-openScreen browse|tokens|devicekey|addtopic` to open a screen directly.
-/// `-resetState YES` removes every server, credential and topic on the device.
+/// `-resetState YES` removes every server, topic and device-only credential on the device; iCloud is left alone.
 @MainActor
 enum DebugSeed {
     private static var didOpenTopic = false
@@ -18,7 +18,7 @@ enum DebugSeed {
             for server in model.servers.servers {
                 await model.removeServer(server)
             }
-            defaults.removeObject(forKey: "cloudSyncedState")
+            CloudSync.forgetSyncedState()
             Logger(subsystem: "me.4vr.alai", category: "DebugSeed").notice("Reset: \(model.servers.servers.count) servers, \(model.store.subscriptions().count) topics remain")
             return
         }
