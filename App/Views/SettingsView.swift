@@ -63,7 +63,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Messages")
                 } footer: {
-                    Text("Downloads every message your servers still hold for your topics, including ones deleted on this iPhone. Servers keep messages only for a limited time, set by their cache duration.")
+                    Text("Downloads every message your servers still hold for your topics, including ones deleted on this device. Servers keep messages only for a limited time, set by their cache duration.")
                 }
 
                 Section("About") {
@@ -78,11 +78,13 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .inlineNavigationTitle()
+            #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", role: .confirm) { dismiss() }
                 }
             }
+            #endif
             .sheet(isPresented: $isAddingServer) { AddServerView() }
             .task { authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
         }
@@ -162,7 +164,7 @@ private struct ServerDetailView: View {
             Section {
                 Button("Remove Server", role: .destructive) { isConfirmingRemoval = true }
             } footer: {
-                Text("Removes its topics and messages from this device.")
+                Text("Removes the server, its topics and messages, and its sign-in from all your devices that share this iCloud account.")
             }
         }
         .navigationTitle(ServerURL.shortDisplay(server))
@@ -269,6 +271,7 @@ struct AddServerView: View {
                 try servers.add(url, credential: credential)
                 await model.registerForPush()
                 await model.importTopics(from: url)
+                await model.publish()
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

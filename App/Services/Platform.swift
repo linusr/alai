@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import NtfyKit
 #if canImport(UIKit)
 import UIKit

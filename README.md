@@ -2,7 +2,7 @@
 
 <p align="center"><img src="App/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png" width="128" alt="Alai icon"></p>
 
-**A native iPhone and Apple Watch app for your self-hosted [Alai server](https://github.com/linusr/alai-server).** It also works with other ntfy-compatible servers.
+**A native iPhone, Mac and Apple Watch app for your self-hosted [Alai server](https://github.com/linusr/alai-server).** It also works with other ntfy-compatible servers.
 
 <p align="center"><a href="https://apps.apple.com/app/alai-notify/id6817074096"><img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="40"></a></p>
 
@@ -25,14 +25,25 @@ other ntfy servers work through the live stream and background refresh.
 - Device keys: labeled access tokens with optional expiry, a ready-to-use `curl` command, and revocation
 - Home and Lock Screen widgets with recent notifications
 - Apple Watch app that fetches messages itself, with complications for the latest message and unread count
+- Mac app with a sidebar of topics, menu commands and keyboard shortcuts; it is the same App Store app as the iPhone
+  app (universal purchase) and keeps receiving messages with its window closed
+- Servers, sign-ins and topics sync between the iPhone and Mac through iCloud: credentials through iCloud Keychain,
+  servers and topics (name, icon, color) through iCloud key-value storage. Read state and muting stay per device.
+  Removing a server or unsubscribing applies to every device on the iCloud account
+
+## iCloud sync
+
+Credentials are end-to-end encrypted by iCloud Keychain. Server URLs and topic names are stored in the app's iCloud
+key-value storage, which Apple encrypts in transit and at rest but not end to end. Anyone who learns an unreserved
+topic's name can read and publish to it, so reserve topics whose names must stay private.
 
 ## Delivery
 
 | Mode | When | Latency |
 |---|---|---|
 | APNs push | Alai server with an APNs key for this app's team | Instant |
-| Live stream | App in the foreground | Instant |
-| Background refresh | App in the background, no APNs | iOS schedules it, from about 15 minutes to hours |
+| Live stream | App in the foreground on iPhone; while the Mac app runs | Instant |
+| Background refresh | iPhone app in the background, no APNs | iOS schedules it, from about 15 minutes to hours |
 
 Background refresh posts local notifications for new messages on topics whose server is not registered for APNs, so
 both paths never notify twice. Notifications on the iPhone are mirrored to the watch.
@@ -57,7 +68,7 @@ not currently proposed.
 
 ## Requirements
 
-- Xcode 27, iOS 26+, watchOS 26+
+- Xcode 27, iOS 26+, macOS 26+, watchOS 26+
 - An Apple Account for signing. A free account covers everything except APNs push, which needs an auth key from the
   paid Apple Developer Program; without it the app runs on the live stream and background refresh
 - [mise](https://mise.jdx.dev), which installs the pinned XcodeGen, and [just](https://just.systems) for the build recipes
@@ -84,7 +95,8 @@ not currently proposed.
    ```
 
 To build, install and launch on a connected iPhone, run `just device` (or `just device <udid>` to pick one).
-`just --list` shows the other recipes: `build` for the simulator, `test` for NtfyKit, `generate` for the project.
+`just mac` builds and launches the Mac app. `just --list` shows the other recipes: `build` for the simulator, `test`
+for NtfyKit, `generate` for the project.
 
 ### TestFlight
 
@@ -92,7 +104,8 @@ To build, install and launch on a connected iPhone, run `just device` (or `just 
    iOS, bundle ID `me.4vr.alai`, any unused name and SKU.
 2. Run `just testflight`. It archives a Release build numbered with the current UTC time, then uploads it with
    the Apple Account signed in to Xcode.
-3. Once processing finishes, add testers under the app's *TestFlight* tab. Internal testers (people on the team)
+3. For the Mac app, add the macOS platform to the same app record, then run `just testflight-mac`.
+4. Once processing finishes, add testers under the app's *TestFlight* tab. Internal testers (people on the team)
    need no review.
 
 Debug builds register with the APNs sandbox and Release builds (TestFlight, App Store) with production, matching the
@@ -103,7 +116,8 @@ Debug builds register with the APNs sandbox and Release builds (TestFlight, App 
 | Path | Contents |
 |---|---|
 | `Packages/NtfyKit` | Shared models, API client, keychain credentials, push payload parsing, notification formatting |
-| `App` | iOS app: SwiftData storage, sync, APNs registration, SwiftUI views |
+| `App` | App code shared by iOS and macOS: SwiftData storage, iCloud sync, APNs registration, SwiftUI views |
+| `Mac` | macOS app entry point, sidebar window and menu commands; its notification extension builds from `NotificationService` |
 | `NotificationService` | Formats each push, resolves `poll_request` payloads, adds action buttons and images |
 | `Widgets` | Home and Lock Screen widgets reading the snapshot the app writes to the app group |
 | `Watch` | watchOS app: receives servers and topics from the iPhone, then polls the servers directly |

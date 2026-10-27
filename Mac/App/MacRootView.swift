@@ -7,6 +7,7 @@ struct MacRootView: View {
     @Environment(AppModel.self) private var model
     @Environment(ServerDirectory.self) private var servers
     @Environment(Router.self) private var router
+    @Environment(\.openWindow) private var openWindow
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @State private var query = ""
     @State private var pendingUnsubscribe: Subscription?
@@ -21,6 +22,17 @@ struct MacRootView: View {
     }
 
     var body: some View {
+        content
+            .onAppear {
+                router.openMainWindow = { [openWindow] in
+                    openWindow(id: "main")
+                    NSApplication.shared.activate()
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
         if servers.servers.isEmpty {
             OnboardingView()
                 .frame(minWidth: 480, minHeight: 520)
@@ -53,6 +65,9 @@ struct MacRootView: View {
             )) { opened in
                 if let stored = model.store.message(key: opened.id) {
                     OpenedMessage(stored: stored).frame(minWidth: 460, minHeight: 400)
+                } else {
+                    ContentUnavailableView("Message Not Found", systemImage: "tray")
+                        .frame(minWidth: 360, minHeight: 240)
                 }
             }
             .confirmationDialog(
@@ -66,7 +81,7 @@ struct MacRootView: View {
                     }
                 }
             } message: {
-                Text("Its messages will be removed from this Mac.")
+                Text("It is removed, with its messages, from all your devices that share this iCloud account.")
             }
         }
     }
@@ -74,7 +89,7 @@ struct MacRootView: View {
     private var sidebar: some View {
         List(selection: selection) {
             Section {
-                AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
+                AllNotificationsRow(unread: sorted.reduce(0) { $0 + $1.unreadCount })
                     .tag(Router.allNotifications)
                 Label("Calendar", systemImage: "calendar")
                     .tag(Router.calendar)

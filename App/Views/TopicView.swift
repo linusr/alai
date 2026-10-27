@@ -30,7 +30,9 @@ struct TopicView: View {
         .inlineNavigationTitle()
         .refreshable { await model.refresh(subscription) }
         .task { await model.markRead(subscription) }
-        .onChange(of: subscription.messages.count) {
+        .onChange(of: subscription.isDeleted ? 0 : subscription.messages.count) {
+            // Sync can delete the topic on screen; its messages count down as they cascade-delete
+            guard !subscription.isDeleted else { return }
             Task { await model.markRead(subscription) }
         }
         .toolbar {

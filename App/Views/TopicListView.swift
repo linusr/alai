@@ -34,15 +34,15 @@ struct TopicListView: View {
                     }
                 }
             } message: {
-                Text("Its messages will be removed from this device.")
+                Text("It is removed, with its messages, from all your devices that share this iCloud account.")
             }
     }
 
     private var topicList: some View {
         List {
-            if !subscriptions.isEmpty {
+            if !sorted.isEmpty {
                 NavigationLink(value: Router.allNotifications) {
-                    AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
+                    AllNotificationsRow(unread: sorted.reduce(0) { $0 + $1.unreadCount })
                 }
             }
             ForEach(sorted) { subscription in
@@ -70,7 +70,7 @@ struct TopicListView: View {
         }
         .refreshable { await model.refreshAll() }
         .overlay {
-            if subscriptions.isEmpty {
+            if sorted.isEmpty {
                 ContentUnavailableView {
                     Label("No Topics Yet", systemImage: "bell.badge")
                 } description: {

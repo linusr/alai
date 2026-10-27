@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import NtfyKit
 
@@ -5,7 +6,7 @@ import NtfyKit
 /// iCloud account has the same topics; credentials follow through iCloud Keychain. Read state and muting
 /// stay per device.
 ///
-/// Each server and topic is its own key, and a device only writes the keys it changed, with removals left
+/// Each server and topic is its own record, and a device only writes records it changed, with removals left
 /// as dated tombstones. A device that has not downloaded the iCloud state yet therefore cannot erase other
 /// devices' topics, and a tombstone never removes a topic subscribed again after it.
 @MainActor
@@ -16,17 +17,21 @@ final class CloudSync {
         let tint: String
     }
 
-    /// A key's value, or a tombstone when `isDeleted` is set. Server records carry no fields.
+    /// A server (no topic) or topic record, or its tombstone when `isDeleted` is set.
     private struct Record: Codable {
+        let server: String
+        let topic: String?
         var fields: TopicFields?
         var isDeleted: Bool
         var updated: Date
     }
 
-    private static let serverPrefix = "server|"
-    private static let topicPrefix = "topic|"
-    /// The local state as of the last upload or applied remote change, so the next upload writes only differences.
+    /// Keys are hashes: iCloud key names are limited to 64 bytes, which a server URL plus topic can exceed.
+    private static let keyPrefix = "sync."
+    /// The records as of the last upload or applied remote change, so changes on either side can be told apart.
     private static let syncedKey = "cloudSyncedState"
+    /// Long enough for every device to have seen a removal; older tombstones are deleted to stay within iCloud's 1024-key limit.
+    private static let tombstoneLifetime: TimeInterval = 30 * 86_400
 
     private let store = NSUbiquitousKeyValueStore.default
     private unowned let model: AppModel
@@ -34,62 +39,95 @@ final class CloudSync {
     var isEnabled = false
     /// Suppresses uploads while a remote change is half applied.
     private var isApplying = false
+    /// Remote changes apply one at a time, since applying awaits network work.
+    private var applying: Task<Void, Never>?
 
     init(model: AppModel) {
         self.model = model
     }
 
     func start() {
-        NotificationCenter.default.addObserver(forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: store, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { Task { await self?.applyRemote() } }
+        NotificationCenter.default.addObserver(forName: NSUbiquitousKeyValueStore.didChangeExternallyNotification, object: store, queue: .main) { [weak self] notification in
+            let reason = notification.userInfo?[NSUbiquitousKeyValueStoreChangeReasonKey] as? Int
+            MainActor.assumeIsolated { self?.scheduleApply(accountChanged: reason == NSUbiquitousKeyValueStoreAccountChange) }
         }
         store.synchronize()
-        Task {
-            await applyRemote()
+        scheduleApply(accountChanged: false)
+    }
+
+    private func scheduleApply(accountChanged: Bool) {
+        let previous = applying
+        applying = Task {
+            await previous?.value
+            if accountChanged {
+                // Another account's records: merge without honoring its tombstones or this device's history
+                saveSynced([:])
+            }
+            await applyRemote(honorTombstones: !accountChanged)
             upload()
         }
     }
 
-    /// Writes the servers and topics added, changed or removed on this device since the last sync.
+    /// Writes this device's changes since the last sync, plus any of its items iCloud lacks, which covers
+    /// writes iCloud discarded before its first download finished.
     func upload() {
         guard isEnabled, !isApplying else { return }
-        let local = localState()
-        let synced = syncedState()
-        guard local != synced else { return }
+        var synced = syncedState()
+        let local = localRecords(synced: synced)
+        let remote = remoteRecords()
         let now = Date.now
-        for (key, fields) in local where synced[key] != fields {
-            write(Record(fields: fields, isDeleted: false, updated: now), key: key)
+        for (key, record) in local {
+            guard synced[key]?.fields != record.fields || synced[key] == nil || remote[key] == nil else { continue }
+            var written = record
+            written.updated = now
+            write(written, key: key)
+            synced[key] = written
         }
-        for key in synced.keys where local[key] == nil {
-            write(Record(fields: nil, isDeleted: true, updated: now), key: key)
+        for (key, record) in synced where local[key] == nil {
+            write(Record(server: record.server, topic: record.topic, fields: nil, isDeleted: true, updated: now), key: key)
+            synced[key] = nil
         }
-        saveSynced(local)
+        for (key, record) in remote where record.isDeleted && now.timeIntervalSince(record.updated) > Self.tombstoneLifetime {
+            store.removeObject(forKey: key)
+        }
+        saveSynced(synced)
     }
 
-    // MARK: State
+    // MARK: Records
 
-    /// Every server and topic on this device, keyed as in iCloud. Servers map to nil fields.
-    private func localState() -> [String: TopicFields?] {
-        var state: [String: TopicFields?] = [:]
+    private static func key(server: String, topic: String?) -> String {
+        let identity = topic.map { "\(server)\n\($0)" } ?? server
+        let digest = SHA256.hash(data: Data(identity.utf8))
+        return keyPrefix + digest.prefix(16).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Every server and topic on this device, keyed as in iCloud. A synced color this app version does not
+    /// know keeps its name, since the local topic can only hold a known color.
+    private func localRecords(synced: [String: Record]) -> [String: Record] {
+        var records: [String: Record] = [:]
         for server in model.servers.servers {
-            state[Self.serverPrefix + server.absoluteString] = .some(nil)
+            records[Self.key(server: server.absoluteString, topic: nil)] = Record(server: server.absoluteString, topic: nil, fields: nil, isDeleted: false, updated: .distantPast)
         }
-        for subscription in model.store.subscriptions() {
-            state[Self.topicPrefix + subscription.baseURL + "|" + subscription.topic] = TopicFields(
-                displayName: subscription.displayName, symbol: subscription.symbol, tint: subscription.tint.rawValue
-            )
+        for subscription in model.store.subscriptions() where !subscription.isDeleted {
+            let key = Self.key(server: subscription.baseURL, topic: subscription.topic)
+            var tint = subscription.tint.rawValue
+            if let syncedTint = synced[key]?.fields?.tint, TopicTint(rawValue: syncedTint) == nil {
+                tint = syncedTint
+            }
+            let fields = TopicFields(displayName: subscription.displayName, symbol: subscription.symbol, tint: tint)
+            records[key] = Record(server: subscription.baseURL, topic: subscription.topic, fields: fields, isDeleted: false, updated: .distantPast)
         }
-        return state
+        return records
     }
 
-    private func syncedState() -> [String: TopicFields?] {
+    private func syncedState() -> [String: Record] {
         guard let data = UserDefaults.standard.data(forKey: Self.syncedKey),
-              let decoded = try? JSONDecoder().decode([String: TopicFields?].self, from: data)
+              let decoded = try? JSONDecoder().decode([String: Record].self, from: data)
         else { return [:] }
         return decoded
     }
 
-    private func saveSynced(_ state: [String: TopicFields?]) {
+    private func saveSynced(_ state: [String: Record]) {
         UserDefaults.standard.set(try? JSONEncoder().encode(state), forKey: Self.syncedKey)
     }
 
@@ -99,10 +137,8 @@ final class CloudSync {
 
     private func remoteRecords() -> [String: Record] {
         var records: [String: Record] = [:]
-        for (key, value) in store.dictionaryRepresentation {
-            guard key.hasPrefix(Self.serverPrefix) || key.hasPrefix(Self.topicPrefix),
-                  let data = value as? Data, let record = try? JSONDecoder().decode(Record.self, from: data)
-            else { continue }
+        for (key, value) in store.dictionaryRepresentation where key.hasPrefix(Self.keyPrefix) {
+            guard let data = value as? Data, let record = try? JSONDecoder().decode(Record.self, from: data) else { continue }
             records[key] = record
         }
         return records
@@ -110,68 +146,69 @@ final class CloudSync {
 
     // MARK: Applying remote changes
 
-    private func applyRemote() async {
+    /// Applies records that changed remotely since this device last synced them. Records that match the
+    /// last synced state are left alone, so a local edit not yet uploaded is never reverted.
+    private func applyRemote(honorTombstones: Bool) async {
         let records = remoteRecords()
         guard !records.isEmpty else { return }
         var synced = syncedState()
-        let local = localState()
         var changed = false
         isApplying = true
+        defer { isApplying = false }
 
-        for (key, record) in records where key.hasPrefix(Self.serverPrefix) {
-            guard let server = URL(string: String(key.dropFirst(Self.serverPrefix.count))) else { continue }
+        for (key, record) in records where record.topic == nil {
+            guard let server = URL(string: record.server) else { continue }
             if record.isDeleted {
-                if local[key] != nil {
+                guard honorTombstones else { continue }
+                if model.servers.servers.contains(server) {
                     await model.removeServer(server)
                     changed = true
                 }
                 synced[key] = nil
             } else {
-                if local[key] == nil {
+                if !model.servers.servers.contains(server) {
                     model.servers.adopt(server)
                     changed = true
                 }
-                synced[key] = .some(nil)
+                synced[key] = record
             }
         }
 
         let context = model.container.mainContext
-        let subscriptions = model.store.subscriptions()
-        for (key, record) in records where key.hasPrefix(Self.topicPrefix) {
-            let parts = key.dropFirst(Self.topicPrefix.count)
-            guard let separator = parts.lastIndex(of: "|"), let server = URL(string: String(parts[..<separator])) else { continue }
-            let topic = String(parts[parts.index(after: separator)...])
-            let existing = subscriptions.first { $0.baseURL == server.absoluteString && $0.topic == topic }
+        let subscriptions = model.store.subscriptions().filter { !$0.isDeleted }
+        for (key, record) in records {
+            guard let topic = record.topic, let server = URL(string: record.server) else { continue }
+            let existing = subscriptions.first { $0.baseURL == record.server && $0.topic == topic }
             if record.isDeleted {
                 // A topic subscribed after the removal was recorded is a new subscription, not a stale one
-                if let existing, existing.createdAt < record.updated {
+                if honorTombstones, let existing, existing.createdAt < record.updated {
+                    if model.router.selectedTopicKey == existing.key { model.router.topicPath = [] }
                     SpotlightIndex.remove(topicKey: existing.key)
                     context.delete(existing)
                     changed = true
+                    synced[key] = nil
                 }
-                synced[key] = nil
-            } else if let fields = record.fields {
-                let tint = TopicTint(rawValue: fields.tint) ?? .blue
+            } else if let fields = record.fields, synced[key]?.fields != fields || existing == nil {
+                // Topics arrive under their server, never on their own
+                guard model.servers.servers.contains(server) else { continue }
                 if let existing {
-                    if local[key] != fields {
-                        existing.displayName = fields.displayName
-                        existing.symbol = fields.symbol
-                        existing.tint = tint
-                        changed = true
-                    }
+                    existing.displayName = fields.displayName
+                    existing.symbol = fields.symbol
+                    if let tint = TopicTint(rawValue: fields.tint) { existing.tint = tint }
                 } else {
-                    context.insert(Subscription(baseURL: server, topic: topic, displayName: fields.displayName, symbol: fields.symbol, tint: tint))
-                    changed = true
+                    context.insert(Subscription(baseURL: server, topic: topic, displayName: fields.displayName, symbol: fields.symbol, tint: TopicTint(rawValue: fields.tint) ?? .blue))
                 }
-                synced[key] = fields
+                changed = true
+                synced[key] = record
             }
         }
 
         try? context.save()
         saveSynced(synced)
-        isApplying = false
         guard changed else { return }
+        isApplying = false
         await model.refreshAll()
         await model.subscriptionsChanged()
+        await model.requestNotificationPermission()
     }
 }

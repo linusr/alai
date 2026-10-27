@@ -185,7 +185,7 @@ targets:
     platform: macOS
     sources:
       - path: App
-        excludes: [AlaiApp.swift, AppDelegate.swift, Services/QuickActions.swift, Services/BackgroundRefresh.swift, Services/WatchBridge.swift]
+        excludes: [AlaiApp.swift, AppDelegate.swift, Info.plist, Alai.entitlements, Services/QuickActions.swift, Services/BackgroundRefresh.swift, Services/WatchBridge.swift]
       - Mac/App
     dependencies:
       - package: NtfyKit

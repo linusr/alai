@@ -501,12 +501,12 @@ struct AllNotificationsView: View {
             ToolbarItem(placement: .trailingAction) {
                 Button("Mark All Read", systemImage: "checkmark.circle") {
                     Task {
-                        for subscription in subscriptions where subscription.unreadCount > 0 {
+                        for subscription in subscriptions where !subscription.isDeleted && subscription.unreadCount > 0 {
                             await model.markRead(subscription)
                         }
                     }
                 }
-                .disabled(!subscriptions.contains { $0.unreadCount > 0 })
+                .disabled(!subscriptions.contains { !$0.isDeleted && $0.unreadCount > 0 })
             }
         }
     }

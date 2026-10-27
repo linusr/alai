@@ -28,9 +28,13 @@ final class Router {
     /// Set when something outside the Topics tab opens a topic, so the Topics tab comes forward.
     private(set) var openRequest = 0
 
+    /// Brings the Mac main window back, since the app keeps running after it closes.
+    var openMainWindow: (() -> Void)?
+
     func show(topicKey: String) {
         topicPath = [topicKey]
         openRequest += 1
+        openMainWindow?()
     }
 
     /// A stored message key to show on top of its topic, e.g. from a Spotlight result.

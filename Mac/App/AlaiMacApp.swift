@@ -30,11 +30,17 @@ struct AlaiMacApp: App {
 /// Menu bar commands; the matching toolbar buttons live in the main window.
 struct AlaiCommands: Commands {
     let model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Topic…") { model.router.presentedSheet = .newTopic }
                 .keyboardShortcut("n")
+                .disabled(model.servers.servers.isEmpty)
+        }
+        CommandGroup(before: .windowList) {
+            Button("Alai") { openWindow(id: "main") }
+                .keyboardShortcut("0")
         }
         CommandMenu("Messages") {
             Button("Refresh") { Task { await model.refreshAll() } }

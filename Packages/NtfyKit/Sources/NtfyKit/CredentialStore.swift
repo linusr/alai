@@ -28,23 +28,36 @@ public struct CredentialStore: Sendable {
         return try? JSONDecoder().decode(ServerCredential.self, from: data)
     }
 
+    /// Replaces the server's credential. A synchronizable store replaces it on every device; a device-only
+    /// store leaves synced copies alone.
     public func save(_ credential: ServerCredential?, for baseURL: URL) throws {
         var existing = baseQuery(baseURL)
-        existing[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
+        existing[kSecAttrSynchronizable as String] = synchronizable ? kSecAttrSynchronizableAny : false
         SecItemDelete(existing as CFDictionary)
         guard let credential else { return }
+        try add(credential, for: baseURL, synchronizable: synchronizable)
+    }
+
+    /// Moves this device's own credential into iCloud Keychain. The synced copy is added before the local one
+    /// is deleted, so a failure leaves the local credential in place; a credential another device already
+    /// synced for the server is kept rather than overwritten.
+    public func makeSynchronizable(for baseURL: URL) {
+        guard synchronizable, let credential = read(baseURL, synchronizable: false),
+              read(baseURL, synchronizable: true) == nil,
+              (try? add(credential, for: baseURL, synchronizable: true)) != nil
+        else { return }
+        var local = baseQuery(baseURL)
+        local[kSecAttrSynchronizable as String] = false
+        SecItemDelete(local as CFDictionary)
+    }
+
+    private func add(_ credential: ServerCredential, for baseURL: URL, synchronizable: Bool) throws {
         var item = baseQuery(baseURL)
         item[kSecValueData as String] = try JSONEncoder().encode(credential)
         item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         item[kSecAttrSynchronizable as String] = synchronizable
         let status = SecItemAdd(item as CFDictionary, nil)
         guard status == errSecSuccess else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
-    }
-
-    /// Re-saves this device's own credential as synchronizable, replacing any synced one for the same server.
-    public func makeSynchronizable(for baseURL: URL) {
-        guard synchronizable, let credential = read(baseURL, synchronizable: false) else { return }
-        try? save(credential, for: baseURL)
     }
 
     private func baseQuery(_ baseURL: URL) -> [String: Any] {

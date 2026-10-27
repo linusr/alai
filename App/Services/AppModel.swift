@@ -129,6 +129,10 @@ final class AppModel {
         for subscription in store.subscriptions() {
             await refresh(subscription)
         }
+        // A synced server can arrive before its credential, so a failed registration retries on later refreshes
+        if push.status.values.contains(where: { if case .failed = $0 { true } else { false } }) {
+            await registerForPush()
+        }
         await publish()
     }
 
@@ -225,6 +229,7 @@ final class AppModel {
     }
 
     func markRead(_ subscription: Subscription) async {
+        guard !subscription.isDeleted else { return }
         store.markAllRead(subscription)
         let center = UNUserNotificationCenter.current()
         let delivered = await center.deliveredNotifications().filter { $0.request.content.threadIdentifier == subscription.key }
@@ -271,7 +276,7 @@ final class AppModel {
     }
 
     /// Asked after content is loaded, since the system prompt blocks until answered.
-    private func requestNotificationPermission() async {
+    func requestNotificationPermission() async {
         #if DEBUG
         // Seeded simulator runs are for screenshots; the prompt would cover them
         if UserDefaults.standard.string(forKey: "seedServer") != nil { return }
