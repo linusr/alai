@@ -31,8 +31,8 @@ enum Platform {
     }
 
     /// Opens a URL from a message. Anyone who can publish to a topic chooses these, so local files never
-    /// open, and on Mac, where any registered scheme launches its app without asking, only web, mail,
-    /// phone, message and Alai links do.
+    /// open on either platform. On Mac only web, mail, phone, message and Alai links open; iPhone also opens
+    /// other apps' links, which notifications use to trigger automations.
     static func open(_ url: URL) async {
         guard let scheme = url.scheme?.lowercased(), scheme != "file" else { return }
         #if canImport(UIKit)

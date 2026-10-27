@@ -19,7 +19,7 @@ final class Router {
     /// with the window closed or behind other apps.
     var visibleTopicKey: String? {
         #if os(macOS)
-        guard NSApplication.shared.isActive, let window = NSApplication.shared.keyWindow, window.isVisible,
+        guard NSApplication.shared.isActive, let window = NSApplication.shared.mainWindow, window.isVisible,
               window.identifier?.rawValue.hasPrefix("main") == true
         else { return nil }
         #endif

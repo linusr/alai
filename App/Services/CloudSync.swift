@@ -42,6 +42,8 @@ final class CloudSync {
     var isEnabled = false
     /// Suppresses uploads while a remote change is half applied.
     private var isApplying = false
+    /// Uploads wait for the first apply, so a restored or new device cannot write over newer iCloud records.
+    private var hasApplied = false
     /// Remote changes apply one at a time, since applying awaits network work.
     private var applying: Task<Void, Never>?
 
@@ -67,6 +69,7 @@ final class CloudSync {
                 Self.forgetSyncedState()
             }
             await applyRemote(honorTombstones: !accountChanged)
+            hasApplied = true
             upload()
         }
     }
@@ -74,12 +77,12 @@ final class CloudSync {
     /// Writes this device's changes since the last sync, plus any of its items iCloud lacks, which covers
     /// writes iCloud discarded before its first download finished.
     func upload() {
-        guard isEnabled, !isApplying else { return }
+        guard isEnabled, hasApplied, !isApplying else { return }
         let previous = syncedState()
         var synced = previous
         let local = localRecords(synced: synced)
         let remote = remoteRecords()
-        // Keys whose records this version cannot decode still count as present, so it never overwrites them
+        // Keys whose records this version cannot decode still count as present, so they are never re-sent as discarded
         let remoteKeys = Set(store.dictionaryRepresentation.keys)
         let now = Date.now
         for (key, record) in local {
@@ -93,14 +96,16 @@ final class CloudSync {
             synced[key] = written
         }
         var removals = Self.removals
-        for (key, record) in synced where local[key] == nil && removals.contains(key) {
-            // An existing tombstone keeps its date, so a late device cannot extend it over a newer subscription
+        for (key, removedAt) in removals {
+            removals[key] = nil
+            guard local[key] == nil, let known = synced[key] ?? remote[key] else { continue }
+            // Dated when the user removed it, and an existing tombstone keeps its date, so neither an offline
+            // device nor a late one can extend a removal over a newer subscription
             if remote[key]?.isDeleted != true {
-                write(Record(server: record.server, topic: record.topic, fields: nil, isDeleted: true, updated: now), key: key)
+                write(Record(server: known.server, topic: known.topic, fields: nil, isDeleted: true, updated: removedAt), key: key)
             }
             synced[key] = nil
         }
-        removals.subtract(removals.filter { local[$0] != nil || synced[$0] == nil })
         Self.removals = removals
         for (key, record) in remote where record.isDeleted && now.timeIntervalSince(record.updated) > Self.tombstoneLifetime {
             store.removeObject(forKey: key)
@@ -116,12 +121,15 @@ final class CloudSync {
 
     /// Records that the user removed a server or topic here, for the next upload to announce.
     static func recordRemoval(server: URL, topic: String?) {
-        removals.insert(key(server: server.absoluteString, topic: topic))
+        removals[key(server: server.absoluteString, topic: topic)] = .now
     }
 
-    private static var removals: Set<String> {
-        get { Set(UserDefaults.standard.stringArray(forKey: removalsKey) ?? []) }
-        set { UserDefaults.standard.set(Array(newValue), forKey: removalsKey) }
+    private static var removals: [String: Date] {
+        get {
+            let stored = UserDefaults.standard.dictionary(forKey: removalsKey) as? [String: Double] ?? [:]
+            return stored.mapValues(Date.init(timeIntervalSince1970:))
+        }
+        set { UserDefaults.standard.set(newValue.mapValues(\.timeIntervalSince1970), forKey: removalsKey) }
     }
 
     // MARK: Records
@@ -204,7 +212,7 @@ final class CloudSync {
                 synced[key] = nil
             } else {
                 // A removal on this device that has not been uploaded yet
-                if Self.removals.contains(key) { continue }
+                if Self.removals[key] != nil { continue }
                 if !model.servers.servers.contains(server) {
                     model.servers.adopt(server)
                     changed = true
@@ -221,7 +229,7 @@ final class CloudSync {
             if record.isDeleted {
                 guard honorTombstones else { continue }
                 // A topic subscribed after the removal was recorded is a new subscription, not a stale one
-                if let existing, existing.createdAt < record.updated {
+                if let existing, !existing.isDeleted, existing.createdAt < record.updated {
                     if model.router.selectedTopicKey == existing.key { model.router.topicPath = [] }
                     SpotlightIndex.remove(topicKey: existing.key)
                     context.delete(existing)
@@ -231,7 +239,7 @@ final class CloudSync {
                 synced[key] = nil
             } else if let fields = record.fields, synced[key]?.fields != fields || existing == nil {
                 // An unsubscribe on this device that has not been uploaded yet
-                if existing == nil, Self.removals.contains(key) { continue }
+                if existing == nil, Self.removals[key] != nil { continue }
                 // Topics arrive under their server, never on their own
                 guard model.servers.servers.contains(server) else { continue }
                 if let existing {

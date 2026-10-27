@@ -71,7 +71,7 @@ struct MacRootView: View {
                 }
             }
             .confirmationDialog(
-                "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
+                "Unsubscribe from \(pendingUnsubscribe.flatMap { $0.isDeleted ? nil : $0.title } ?? "")?",
                 isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } })
             ) {
                 Button("Unsubscribe", role: .destructive) {

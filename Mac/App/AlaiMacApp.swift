@@ -34,7 +34,10 @@ struct AlaiCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Topic…") { model.router.presentedSheet = .newTopic }
+            Button("New Topic…") {
+                guard !model.servers.servers.isEmpty else { return }
+                model.router.presentedSheet = .newTopic
+            }
                 .keyboardShortcut("n")
         }
         CommandGroup(before: .windowList) {

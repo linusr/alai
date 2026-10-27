@@ -77,7 +77,7 @@ final class AppModel {
         }
         guard added > 0 else { return 0 }
         try? container.mainContext.save()
-        for subscription in store.subscriptions() where subscription.serverURL == server {
+        for subscription in store.subscriptions().filter({ $0.serverURL == server }) {
             await refresh(subscription)
         }
         await subscriptionsChanged()
@@ -115,7 +115,7 @@ final class AppModel {
         topics.forEach(container.mainContext.delete)
         try? container.mainContext.save()
         await push.unregister(from: server, directory: servers)
-        servers.remove(server)
+        servers.remove(server, everywhere: announce)
         await subscriptionsChanged()
     }
 
@@ -202,12 +202,25 @@ final class AppModel {
         // The Mac has no background refresh, so the stream it keeps open notifies for servers APNs does not
         // reach; while registration is pending with a token in hand it stays quiet, since APNs may deliver too
         let pending = push.status[server] == nil && push.token != nil
-        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending {
+        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending, allowsStreamNotification() {
             await LocalNotifications.post(message, baseURL: server)
         }
         #endif
         await publish()
     }
+
+    #if os(macOS)
+    @ObservationIgnored private var streamNotificationTimes: [Date] = []
+
+    /// At most five stream notifications a minute, since a stream reconnecting after sleep replays what it missed.
+    private func allowsStreamNotification() -> Bool {
+        let now = Date.now
+        streamNotificationTimes.removeAll { now.timeIntervalSince($0) > 60 }
+        guard streamNotificationTimes.count < 5 else { return false }
+        streamNotificationTimes.append(now)
+        return true
+    }
+    #endif
 
     /// Background refresh: polls every topic and posts local notifications for new messages on topics
     /// whose server does not deliver them through APNs.
@@ -258,8 +271,9 @@ final class AppModel {
     func markRead(_ subscription: Subscription) async {
         guard !subscription.isDeleted else { return }
         store.markAllRead(subscription)
+        let key = subscription.key
         let center = UNUserNotificationCenter.current()
-        let delivered = await center.deliveredNotifications().filter { $0.request.content.threadIdentifier == subscription.key }
+        let delivered = await center.deliveredNotifications().filter { $0.request.content.threadIdentifier == key }
         center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier))
         await publish()
     }
@@ -295,8 +309,7 @@ final class AppModel {
     func startSync() {
         #if DEBUG
         // Seeded runs load demo servers and topics, which must not reach the real iCloud state
-        let defaults = UserDefaults.standard
-        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") {
+        if DebugSeed.holdsDemoData {
             Logger(subsystem: "me.4vr.alai", category: "CloudSync").notice("iCloud sync is off: this device holds demo data; launch with -resetState YES to clear it")
             return
         }

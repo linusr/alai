@@ -23,7 +23,7 @@ struct TopicListView: View {
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
             .browseTopicsSheet(server: $browsingServer)
             .confirmationDialog(
-                "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
+                "Unsubscribe from \(pendingUnsubscribe.flatMap { $0.isDeleted ? nil : $0.title } ?? "")?",
                 isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } }),
                 titleVisibility: .visible
             ) {

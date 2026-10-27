@@ -12,6 +12,12 @@ import NtfyKit
 enum DebugSeed {
     private static var didOpenTopic = false
 
+    /// Seeded, reset and previously seeded runs, which stay out of iCloud sync and iCloud Keychain.
+    static var holdsDemoData: Bool {
+        let defaults = UserDefaults.standard
+        return defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded")
+    }
+
     static func apply(to model: AppModel) async {
         let defaults = UserDefaults.standard
         if defaults.bool(forKey: "resetState") {

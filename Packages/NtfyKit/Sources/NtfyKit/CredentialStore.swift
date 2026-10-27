@@ -13,9 +13,9 @@ public struct CredentialStore: Sendable {
         self.synchronizable = synchronizable
     }
 
-    /// This device's own credential first, then one synced from another device.
+    /// The synced credential first, so a change made on another device takes effect here, then this device's copy.
     public func credential(for baseURL: URL) -> ServerCredential? {
-        read(baseURL, synchronizable: false) ?? read(baseURL, synchronizable: true)
+        read(baseURL, synchronizable: true) ?? read(baseURL, synchronizable: false)
     }
 
     private func read(_ baseURL: URL, synchronizable: Bool) -> ServerCredential? {
@@ -28,27 +28,28 @@ public struct CredentialStore: Sendable {
         return try? JSONDecoder().decode(ServerCredential.self, from: data)
     }
 
-    /// Replaces the server's credential. A synchronizable store replaces it on every device; a device-only
-    /// store leaves synced copies alone.
+    /// Replaces the server's credential. A synchronizable store replaces it on every device and also keeps a
+    /// device copy, which survives signing out of iCloud; a device-only store leaves synced copies alone.
     public func save(_ credential: ServerCredential?, for baseURL: URL) throws {
         var existing = baseQuery(baseURL)
         existing[kSecAttrSynchronizable as String] = synchronizable ? kSecAttrSynchronizableAny : false
         SecItemDelete(existing as CFDictionary)
         guard let credential else { return }
-        try add(credential, for: baseURL, synchronizable: synchronizable)
+        if synchronizable { try add(credential, for: baseURL, synchronizable: true) }
+        try add(credential, for: baseURL, synchronizable: false)
     }
 
-    /// Moves this device's own credential into iCloud Keychain. The synced copy is added before the local one
-    /// is deleted, so a failure leaves the local credential in place. When another device already synced a
-    /// credential for the server, that one is kept and the local copy dropped, so later changes reach every device.
-    public func makeSynchronizable(for baseURL: URL) {
-        guard synchronizable, let credential = read(baseURL, synchronizable: false) else { return }
-        if read(baseURL, synchronizable: true) == nil {
-            guard (try? add(credential, for: baseURL, synchronizable: true)) != nil else { return }
-        }
+    /// Deletes only this device's copy, for a removal that another device already applied to the synced one.
+    public func deleteDeviceCopy(for baseURL: URL) {
         var local = baseQuery(baseURL)
         local[kSecAttrSynchronizable as String] = false
         SecItemDelete(local as CFDictionary)
+    }
+
+    /// Copies this device's credential into iCloud Keychain unless another device already synced one.
+    public func makeSynchronizable(for baseURL: URL) {
+        guard synchronizable, read(baseURL, synchronizable: true) == nil, let credential = read(baseURL, synchronizable: false) else { return }
+        try? add(credential, for: baseURL, synchronizable: true)
     }
 
     private func add(_ credential: ServerCredential, for baseURL: URL, synchronizable: Bool) throws {

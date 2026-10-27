@@ -12,8 +12,7 @@ final class ServerDirectory {
     private let credentials: CredentialStore = {
         #if DEBUG
         // Devices holding demo data must neither put demo passwords in iCloud Keychain nor delete real ones from it
-        let defaults = UserDefaults.standard
-        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") { return CredentialStore() }
+        if DebugSeed.holdsDemoData { return CredentialStore() }
         #endif
         return CredentialStore(synchronizable: true)
     }()
@@ -59,8 +58,14 @@ final class ServerDirectory {
         servers.forEach(credentials.makeSynchronizable)
     }
 
-    func remove(_ url: URL) {
-        try? credentials.save(nil, for: url)
+    /// Removes the server; `everywhere` also deletes its synced credential, which a removal arriving from
+    /// another device leaves to that device.
+    func remove(_ url: URL, everywhere: Bool = true) {
+        if everywhere {
+            try? credentials.save(nil, for: url)
+        } else {
+            credentials.deleteDeviceCopy(for: url)
+        }
         servers.removeAll { $0 == url }
         setAddedDate(nil, for: url)
         persist()
