@@ -11,13 +11,16 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().delegate = notifications
     }
 
-    /// Becoming active right after launch runs the first refresh.
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.startSync()
         NSApplication.shared.registerForRemoteNotifications()
         // A Mac app stays running with its window closed, so it keeps the live stream open throughout
         model.setLiveUpdates(active: true)
-        Task { await model.registerForPush() }
+        lastRefresh = .now
+        Task {
+            await model.refreshAll()
+            await model.registerForPush()
+        }
     }
 
     private var lastRefresh = Date.distantPast

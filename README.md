@@ -116,7 +116,7 @@ Debug builds register with the APNs sandbox and Release builds (TestFlight, App 
 | Path | Contents |
 |---|---|
 | `Packages/NtfyKit` | Shared models, API client, keychain credentials, push payload parsing, notification formatting |
-| `App` | App code shared by iOS and macOS: SwiftData storage, iCloud sync, APNs registration, SwiftUI views |
+| `App` | App code shared by iOS and macOS: SwiftData storage, iCloud sync, APNs registration, SwiftUI views; the app entry point, background refresh, quick actions and watch bridge are iOS-only |
 | `Mac` | macOS app entry point, sidebar window and menu commands; its notification extension builds from `NotificationService` |
 | `NotificationService` | Formats each push, resolves `poll_request` payloads, adds action buttons and images |
 | `Widgets` | Home and Lock Screen widgets reading the snapshot the app writes to the app group |

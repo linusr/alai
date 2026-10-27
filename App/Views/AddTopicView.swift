@@ -131,6 +131,8 @@ struct EditTopicView: View {
                 }
             }
             .onDisappear { Task { await model.publish() } }
+            // Sync can delete the topic while it is being edited
+            .onChange(of: subscription.isDeleted) { if subscription.isDeleted { dismiss() } }
             .navigationTitle("Edit Topic")
             .inlineNavigationTitle()
             .toolbar {

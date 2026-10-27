@@ -35,9 +35,6 @@ final class CloudSync {
     private static let removalsKey = "cloudSyncRemovals"
     /// Long enough for every device to have seen a removal; older tombstones are deleted to stay within iCloud's 1024-key limit.
     private static let tombstoneLifetime: TimeInterval = 30 * 86_400
-    /// A record this device wrote within this window but iCloud lacks was discarded before iCloud's first
-    /// download and is written again. An older one was removed elsewhere and its tombstone has expired.
-    private static let rewriteWindow: TimeInterval = 86_400
 
     private let store = NSUbiquitousKeyValueStore.default
     private unowned let model: AppModel
@@ -67,7 +64,7 @@ final class CloudSync {
             await previous?.value
             if accountChanged {
                 // Another account's records: merge without honoring its tombstones or this device's history
-                saveSynced([:])
+                Self.forgetSyncedState()
             }
             await applyRemote(honorTombstones: !accountChanged)
             upload()
@@ -87,7 +84,8 @@ final class CloudSync {
         let now = Date.now
         for (key, record) in local {
             let changedHere = synced[key] == nil || synced[key]?.fields != record.fields
-            let discarded = !remoteKeys.contains(key) && synced[key].map { now.timeIntervalSince($0.updated) < Self.rewriteWindow } ?? false
+            // A record iCloud lacks that is younger than any tombstone was dropped by iCloud, not removed elsewhere
+            let discarded = !remoteKeys.contains(key) && synced[key].map { now.timeIntervalSince($0.updated) < Self.tombstoneLifetime } ?? false
             guard changedHere || discarded else { continue }
             var written = record
             written.updated = now
@@ -180,8 +178,8 @@ final class CloudSync {
 
     // MARK: Applying remote changes
 
-    /// Applies records that changed remotely since this device last synced them. Records that match the
-    /// last synced state are left alone, so a local edit not yet uploaded is never reverted.
+    /// Applies records that changed remotely since this device last synced them; records that match the last
+    /// synced state are left alone. Concurrent edits on two devices resolve to whichever reached iCloud last.
     private func applyRemote(honorTombstones: Bool) async {
         let records = remoteRecords()
         guard !records.isEmpty else { return }
@@ -202,8 +200,11 @@ final class CloudSync {
                     }
                     changed = true
                 }
-                if !model.servers.servers.contains(server) { synced[key] = nil }
+                // A kept server is announced again, since the tombstone otherwise hides it from other devices
+                synced[key] = nil
             } else {
+                // A removal on this device that has not been uploaded yet
+                if Self.removals.contains(key) { continue }
                 if !model.servers.servers.contains(server) {
                     model.servers.adopt(server)
                     changed = true
@@ -229,8 +230,8 @@ final class CloudSync {
                 // A kept topic is announced again, since the tombstone otherwise hides it from other devices
                 synced[key] = nil
             } else if let fields = record.fields, synced[key]?.fields != fields || existing == nil {
-                // Synced but gone locally: an unsubscribe on this device that has not been uploaded yet
-                if existing == nil, synced[key] != nil { continue }
+                // An unsubscribe on this device that has not been uploaded yet
+                if existing == nil, Self.removals.contains(key) { continue }
                 // Topics arrive under their server, never on their own
                 guard model.servers.servers.contains(server) else { continue }
                 if let existing {

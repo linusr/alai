@@ -55,7 +55,7 @@ testflight: generate
 
 # Build and launch the Mac app
 mac: generate
-    xcodebuild -project Alai.xcodeproj -scheme AlaiMac -configuration Debug -destination 'platform=macOS,arch=arm64' \
+    xcodebuild -project Alai.xcodeproj -scheme AlaiMac -configuration Debug -destination 'platform=macOS' \
         -derivedDataPath build/mac -allowProvisioningUpdates -quiet build
     open build/mac/Build/Products/Debug/Alai.app
 

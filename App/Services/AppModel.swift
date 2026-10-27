@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Observation
 import SwiftData
 import UserNotifications
@@ -104,6 +105,9 @@ final class AppModel {
     /// from another device are not announced again.
     func removeServer(_ server: URL, announce: Bool = true) async {
         let topics = store.subscriptions().filter { $0.serverURL == server }
+        if let selected = router.selectedTopicKey, topics.contains(where: { $0.key == selected }) {
+            router.topicPath = []
+        }
         if announce {
             CloudSync.recordRemoval(server: server, topic: nil)
             topics.forEach { CloudSync.recordRemoval(server: server, topic: $0.topic) }
@@ -172,6 +176,8 @@ final class AppModel {
 
     @discardableResult
     func refresh(_ subscription: Subscription, full: Bool = false) async -> [Message] {
+        // Sync can delete topics while a refresh loop awaits earlier ones
+        guard !subscription.isDeleted else { return [] }
         do {
             let since = full ? nil : subscription.lastMessageID
             let messages = try await servers.client(for: subscription.serverURL).poll(topic: subscription.topic, since: since)
@@ -193,8 +199,10 @@ final class AppModel {
             store.markAllRead(subscription)
         }
         #if os(macOS)
-        // The Mac has no background refresh: the stream it keeps open notifies for servers known to lack APNs
-        if !isOnScreen, !subscription.isMuted, push.status[server] == .unsupported {
+        // The Mac has no background refresh, so the stream it keeps open notifies for servers APNs does not
+        // reach; while registration is pending with a token in hand it stays quiet, since APNs may deliver too
+        let pending = push.status[server] == nil && push.token != nil
+        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending {
             await LocalNotifications.post(message, baseURL: server)
         }
         #endif
@@ -258,9 +266,9 @@ final class AppModel {
 
     /// Updates the badge, the widgets' snapshot and the watch.
     func publish() async {
-        let subscriptions = store.subscriptions()
-        let unread = subscriptions.reduce(0) { $0 + $1.unreadCount }
+        let unread = store.subscriptions().reduce(0) { $0 + $1.unreadCount }
         try? await UNUserNotificationCenter.current().setBadgeCount(unread)
+        let subscriptions = store.subscriptions().filter { !$0.isDeleted }
 
         let entries = subscriptions.flatMap { subscription in
             subscription.messages.compactMap { stored in
@@ -288,7 +296,10 @@ final class AppModel {
         #if DEBUG
         // Seeded runs load demo servers and topics, which must not reach the real iCloud state
         let defaults = UserDefaults.standard
-        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") { return }
+        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") {
+            Logger(subsystem: "me.4vr.alai", category: "CloudSync").notice("iCloud sync is off: this device holds demo data; launch with -resetState YES to clear it")
+            return
+        }
         #endif
         servers.syncCredentials()
         cloud.isEnabled = true

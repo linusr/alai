@@ -18,7 +18,7 @@ public struct CredentialStore: Sendable {
         read(baseURL, synchronizable: false) ?? read(baseURL, synchronizable: true)
     }
 
-    private func read(_ baseURL: URL, synchronizable: Any) -> ServerCredential? {
+    private func read(_ baseURL: URL, synchronizable: Bool) -> ServerCredential? {
         var query = baseQuery(baseURL)
         query[kSecAttrSynchronizable as String] = synchronizable
         query[kSecReturnData as String] = true
