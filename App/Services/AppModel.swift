@@ -86,6 +86,7 @@ final class AppModel {
 
     func unsubscribe(_ subscription: Subscription) async {
         guard !subscription.isDeleted else { return }
+        CloudSync.recordRemoval(server: subscription.serverURL, topic: subscription.topic)
         SpotlightIndex.remove(topicKey: subscription.key)
         container.mainContext.delete(subscription)
         try? container.mainContext.save()
@@ -93,13 +94,21 @@ final class AppModel {
     }
 
     func setMuted(_ subscription: Subscription, _ muted: Bool) async {
+        guard !subscription.isDeleted else { return }
         subscription.isMuted = muted
         try? container.mainContext.save()
         await subscriptionsChanged()
     }
 
-    func removeServer(_ server: URL) async {
-        store.subscriptions().filter { $0.serverURL == server }.forEach(container.mainContext.delete)
+    /// Removes a server and its topics. `announce` records the removal for iCloud sync; removals that arrived
+    /// from another device are not announced again.
+    func removeServer(_ server: URL, announce: Bool = true) async {
+        let topics = store.subscriptions().filter { $0.serverURL == server }
+        if announce {
+            CloudSync.recordRemoval(server: server, topic: nil)
+            topics.forEach { CloudSync.recordRemoval(server: server, topic: $0.topic) }
+        }
+        topics.forEach(container.mainContext.delete)
         try? container.mainContext.save()
         await push.unregister(from: server, directory: servers)
         servers.remove(server)
@@ -166,9 +175,11 @@ final class AppModel {
         do {
             let since = full ? nil : subscription.lastMessageID
             let messages = try await servers.client(for: subscription.serverURL).poll(topic: subscription.topic, since: since)
+            // Sync can delete the topic while the poll is in flight
+            guard !subscription.isDeleted else { return [] }
             return store.apply(messages, to: subscription)
         } catch {
-            lastError = "\(subscription.title): \(error.localizedDescription)"
+            if !subscription.isDeleted { lastError = "\(subscription.title): \(error.localizedDescription)" }
             return []
         }
     }
@@ -276,7 +287,8 @@ final class AppModel {
     func startSync() {
         #if DEBUG
         // Seeded runs load demo servers and topics, which must not reach the real iCloud state
-        if UserDefaults.standard.string(forKey: "seedServer") != nil || UserDefaults.standard.bool(forKey: "resetState") { return }
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") { return }
         #endif
         servers.syncCredentials()
         cloud.isEnabled = true

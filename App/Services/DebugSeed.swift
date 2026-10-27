@@ -19,10 +19,12 @@ enum DebugSeed {
                 await model.removeServer(server)
             }
             CloudSync.forgetSyncedState()
+            defaults.removeObject(forKey: "debugSeeded")
             Logger(subsystem: "me.4vr.alai", category: "DebugSeed").notice("Reset: \(model.servers.servers.count) servers, \(model.store.subscriptions().count) topics remain")
             return
         }
         guard let server = defaults.string(forKey: "seedServer").flatMap(URL.init(string:)) else { return }
+        defaults.set(true, forKey: "debugSeeded")
         if !model.servers.servers.contains(server) {
             let credential = defaults.string(forKey: "seedUser").map { ServerCredential.basic(username: $0, password: defaults.string(forKey: "seedPassword") ?? "") }
             try? model.servers.add(server, credential: credential)

@@ -7,12 +7,13 @@ import NtfyKit
 @MainActor
 final class ServerDirectory {
     private static let serversKey = "servers"
+    private static let addedKey = "serverAddedDates"
     private let defaults = SharedContainer.defaults
     private let credentials: CredentialStore = {
         #if DEBUG
-        // Seeded and reset runs must neither put demo passwords in iCloud Keychain nor delete real ones from it
+        // Devices holding demo data must neither put demo passwords in iCloud Keychain nor delete real ones from it
         let defaults = UserDefaults.standard
-        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") { return CredentialStore() }
+        if defaults.string(forKey: "seedServer") != nil || defaults.bool(forKey: "resetState") || defaults.bool(forKey: "debugSeeded") { return CredentialStore() }
         #endif
         return CredentialStore(synchronizable: true)
     }()
@@ -27,14 +28,29 @@ final class ServerDirectory {
 
     func add(_ url: URL, credential: ServerCredential?) throws {
         try credentials.save(credential, for: url)
-        if !servers.contains(url) { servers.append(url) }
+        if !servers.contains(url) {
+            servers.append(url)
+            setAddedDate(.now, for: url)
+        }
         persist()
+    }
+
+    /// When this device added or adopted the server; servers from before this was recorded count as long ago.
+    func addedDate(_ url: URL) -> Date {
+        (defaults.dictionary(forKey: Self.addedKey)?[url.absoluteString] as? Double).map(Date.init(timeIntervalSince1970:)) ?? .distantPast
+    }
+
+    private func setAddedDate(_ date: Date?, for url: URL) {
+        var dates = defaults.dictionary(forKey: Self.addedKey) ?? [:]
+        dates[url.absoluteString] = date?.timeIntervalSince1970
+        defaults.set(dates, forKey: Self.addedKey)
     }
 
     /// Adds a server another device synced; its credential arrives through iCloud Keychain.
     func adopt(_ url: URL) {
         guard !servers.contains(url) else { return }
         servers.append(url)
+        setAddedDate(.now, for: url)
         persist()
     }
 
@@ -46,6 +62,7 @@ final class ServerDirectory {
     func remove(_ url: URL) {
         try? credentials.save(nil, for: url)
         servers.removeAll { $0 == url }
+        setAddedDate(nil, for: url)
         persist()
     }
 

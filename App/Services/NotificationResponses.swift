@@ -9,7 +9,9 @@ extension AppModel {
         guard let payload = PushPayload(userInfo: userInfo) else { return false }
         let message = payload.message
         let center = UNUserNotificationCenter.current()
-        let matching = await center.deliveredNotifications().filter {
+        // AppKit also delivers ordinary pushes here while the app runs; only deletes and clears replace notifications
+        let replacesNotification = message.kind == .messageDelete || message.kind == .messageClear
+        let matching = !replacesNotification ? [] : await center.deliveredNotifications().filter {
             PushPayload(userInfo: $0.request.content.userInfo).map {
                 $0.baseURL == payload.baseURL && $0.message.topic == message.topic && $0.message.effectiveSequenceID == message.effectiveSequenceID
             } ?? false
