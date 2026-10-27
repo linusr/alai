@@ -20,7 +20,12 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         Task { await model.registerForPush() }
     }
 
+    private var lastRefresh = Date.distantPast
+
+    /// The open stream already delivers new messages, so switching back to the app polls at most once a minute.
     func applicationDidBecomeActive(_ notification: Notification) {
+        guard Date.now.timeIntervalSince(lastRefresh) > 60 else { return }
+        lastRefresh = .now
         Task { await model.refreshAll() }
     }
 

@@ -52,7 +52,7 @@ extension AppModel {
 /// Presents notifications in the foreground and handles taps and actions on them. The system calls these
 /// on an arbitrary queue and requires the completion handlers on the main thread, so
 /// the work hops to the main actor and completes there. The async delegate variants would complete on the
-/// cooperative pool instead, which UIKit rejects with an assertion.
+/// cooperative pool instead, which UIKit rejects with an assertion; AppKit gets the same treatment.
 @MainActor
 final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
     private let model: AppModel
@@ -69,7 +69,7 @@ final class NotificationHandler: NSObject, UNUserNotificationCenterDelegate {
         let threadIdentifier = notification.request.content.threadIdentifier
         nonisolated(unsafe) let completionHandler = completionHandler
         Task { @MainActor in
-            completionHandler(self.model.router.selectedTopicKey == threadIdentifier ? [] : [.banner, .list, .sound])
+            completionHandler(self.model.router.visibleTopicKey == threadIdentifier ? [] : [.banner, .list, .sound])
             await self.model.refreshAll()
         }
     }

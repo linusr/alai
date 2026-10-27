@@ -1,4 +1,4 @@
-Alai delivers notifications from a server you run yourself to your iPhone and Apple Watch. Scripts, backups, monitoring tools, CI pipelines and smart-home devices publish a message with a single HTTP request, and it arrives instantly as a native notification.
+Alai delivers notifications from a server you run yourself to your iPhone, Mac and Apple Watch. Scripts, backups, monitoring tools, CI pipelines and smart-home devices publish a message with a single HTTP request, and it arrives instantly as a native notification.
 
 INSTANT, PRIVATE PUSH
 With the open-source Alai server, pushes go straight from your server through Apple Push Notification service. There is no third-party relay and no account with us. The app also works with other ntfy-compatible servers, fetching new messages when opened and in the background.
@@ -12,6 +12,8 @@ EVERYTHING IN ONE PLACE
 BUILT FOR APPLE DEVICES
 • Home Screen and Lock Screen widgets with recent notifications
 • Apple Watch app with complications for the latest message and unread count
+• Mac app with a sidebar of your topics, menu commands and keyboard shortcuts
+• Your servers, sign-ins and topics sync between iPhone and Mac through iCloud
 • Time-sensitive delivery for high-priority alerts
 • Swipe to mute, mark as read or unsubscribe
 

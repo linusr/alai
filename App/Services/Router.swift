@@ -1,4 +1,7 @@
 import Foundation
+#if os(macOS)
+import AppKit
+#endif
 import Observation
 import NtfyKit
 
@@ -9,8 +12,17 @@ final class Router {
     /// Screens pushed on the Topics tab: topic keys, or `Router.allNotifications` for the cross-topic feed.
     var topicPath: [String] = []
 
-    /// The topic on screen, if any.
+    /// The topic selected in the navigation, if any.
     var selectedTopicKey: String? { topicPath.last }
+
+    /// The topic the user is looking at: selected, with the app in front. A Mac app keeps its selection
+    /// with the window closed or behind other apps.
+    var visibleTopicKey: String? {
+        #if os(macOS)
+        guard NSApplication.shared.isActive, NSApplication.shared.keyWindow?.isVisible == true else { return nil }
+        #endif
+        return selectedTopicKey
+    }
 
     static let allNotifications = "all"
     /// The calendar, which the Mac sidebar lists alongside the topics.

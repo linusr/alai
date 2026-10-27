@@ -130,7 +130,8 @@ final class CloudSync {
             if let syncedTint = synced[key]?.fields?.tint, TopicTint(rawValue: syncedTint) == nil {
                 tint = syncedTint
             }
-            let fields = TopicFields(displayName: subscription.displayName, symbol: subscription.symbol, tint: tint)
+            let name = subscription.displayName.flatMap { $0.isEmpty ? nil : $0 }
+            let fields = TopicFields(displayName: name, symbol: subscription.symbol, tint: tint)
             records[key] = Record(server: subscription.baseURL, topic: subscription.topic, fields: fields, isDeleted: false, updated: .distantPast)
         }
         return records

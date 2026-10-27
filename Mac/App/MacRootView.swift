@@ -23,6 +23,22 @@ struct MacRootView: View {
 
     var body: some View {
         content
+            .sheet(item: Bindable(router).presentedSheet) { sheet in
+                switch sheet {
+                case .newTopic:
+                    AddTopicView().frame(minWidth: 460, minHeight: 520)
+                case .browse(let server):
+                    NavigationStack {
+                        BrowseTopicsView(server: server)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") { router.presentedSheet = nil }
+                                }
+                            }
+                    }
+                    .frame(minWidth: 460, minHeight: 520)
+                }
+            }
             .onAppear {
                 router.openMainWindow = { [openWindow] in
                     openWindow(id: "main")
@@ -43,22 +59,6 @@ struct MacRootView: View {
                 NavigationStack { detail }
             }
             .searchable(text: $query, placement: .sidebar, prompt: "Messages")
-            .sheet(item: Bindable(router).presentedSheet) { sheet in
-                switch sheet {
-                case .newTopic:
-                    AddTopicView().frame(minWidth: 460, minHeight: 520)
-                case .browse(let server):
-                    NavigationStack {
-                        BrowseTopicsView(server: server)
-                            .toolbar {
-                                ToolbarItem(placement: .confirmationAction) {
-                                    Button("Done") { router.presentedSheet = nil }
-                                }
-                            }
-                    }
-                    .frame(minWidth: 460, minHeight: 520)
-                }
-            }
             .sheet(item: Binding(
                 get: { router.openedMessageKey.map(OpenedMessageKey.init) },
                 set: { router.openedMessageKey = $0?.id }

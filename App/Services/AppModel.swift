@@ -177,13 +177,13 @@ final class AppModel {
     func receive(_ message: Message, from server: URL) async {
         guard let subscription = store.subscription(baseURL: server, topic: message.topic) else { return }
         guard !store.apply([message], to: subscription).isEmpty else { return }
-        let isOnScreen = router.selectedTopicKey == subscription.key
+        let isOnScreen = router.visibleTopicKey == subscription.key
         if isOnScreen {
             store.markAllRead(subscription)
         }
         #if os(macOS)
-        // The Mac has no background refresh: the stream it keeps open notifies for servers without APNs
-        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered {
+        // The Mac has no background refresh: the stream it keeps open notifies for servers known to lack APNs
+        if !isOnScreen, !subscription.isMuted, push.status[server] == .unsupported {
             await LocalNotifications.post(message, baseURL: server)
         }
         #endif

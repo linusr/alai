@@ -36,7 +36,6 @@ struct AlaiCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Topic…") { model.router.presentedSheet = .newTopic }
                 .keyboardShortcut("n")
-                .disabled(model.servers.servers.isEmpty)
         }
         CommandGroup(before: .windowList) {
             Button("Alai") { openWindow(id: "main") }
