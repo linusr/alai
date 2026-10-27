@@ -98,6 +98,7 @@ struct OnboardingView: View {
             .buttonStyle(.glassProminent)
             .controlSize(.large)
         }
+        .frame(maxWidth: 420)
         .padding(32)
         .sheet(isPresented: $isAddingServer) {
             AddServerView()
