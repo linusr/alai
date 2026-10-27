@@ -35,8 +35,7 @@ struct AddTopicView: View {
                 Section {
                     HStack {
                         TextField("Topic name", text: $topic)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .identifierEntry()
                             .fontDesign(.monospaced)
                         Button("Generate", systemImage: "dice") {
                             topic = String((0..<16).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! })
@@ -76,7 +75,7 @@ struct AddTopicView: View {
                 }
             }
             .navigationTitle("Add Topic")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) { dismiss() }
@@ -116,6 +115,7 @@ struct AddTopicView: View {
 
 struct EditTopicView: View {
     @Bindable var subscription: Subscription
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -130,8 +130,9 @@ struct EditTopicView: View {
                     LabeledContent("Server", value: ServerURL.shortDisplay(subscription.serverURL))
                 }
             }
+            .onDisappear { Task { await model.publish() } }
             .navigationTitle("Edit Topic")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", role: .confirm) { dismiss() }

@@ -13,6 +13,17 @@ final class Router {
     var selectedTopicKey: String? { topicPath.last }
 
     static let allNotifications = "all"
+    /// The calendar, which the Mac sidebar lists alongside the topics.
+    static let calendar = "calendar"
+
+    /// Sheets the Mac menu bar opens over the main window.
+    enum Sheet: Hashable, Identifiable {
+        case newTopic
+        case browse(URL)
+        var id: Self { self }
+    }
+
+    var presentedSheet: Sheet?
 
     /// Set when something outside the Topics tab opens a topic, so the Topics tab comes forward.
     private(set) var openRequest = 0

@@ -89,13 +89,13 @@ struct AttachmentView: View {
     let server: URL
     @Environment(ServerDirectory.self) private var servers
     @Environment(\.openURL) private var openURL
-    @State private var image: UIImage?
+    @State private var image: PlatformImage?
 
     var body: some View {
         Group {
             if attachment.isImage, !attachment.isExpired {
                 if let image {
-                    Image(uiImage: image)
+                    Image(platformImage: image)
                         .resizable()
                         .scaledToFit()
                         .clipShape(.rect(cornerRadius: 12))
@@ -142,7 +142,7 @@ struct AttachmentView: View {
             request.setValue(credential.authorizationHeader, forHTTPHeaderField: "Authorization")
         }
         if let (data, _) = try? await URLSession.shared.data(for: request) {
-            image = UIImage(data: data)
+            image = PlatformImage(data: data)
         }
     }
 }

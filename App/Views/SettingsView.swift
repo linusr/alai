@@ -36,7 +36,7 @@ struct SettingsView: View {
                         Text(authorizationLabel).foregroundStyle(authorization == .authorized ? .green : .orange)
                     }
                     Button("Notification Settings", systemImage: "gear") {
-                        openURL(URL(string: UIApplication.openNotificationSettingsURLString)!)
+                        openURL(Platform.notificationSettingsURL)
                     }
                 }
 
@@ -77,7 +77,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", role: .confirm) { dismiss() }
@@ -215,10 +215,7 @@ struct AddServerView: View {
             Form {
                 Section {
                     TextField("alerts.example.com", text: $address)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .urlEntry()
                 } header: {
                     Text("Server")
                 }
@@ -233,8 +230,7 @@ struct AddServerView: View {
                     case .password:
                         TextField("Username", text: $username)
                             .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .identifierEntry()
                         SecureField("Password", text: $password)
                             .textContentType(.password)
                     case .token:
@@ -246,7 +242,7 @@ struct AddServerView: View {
                 }
             }
             .navigationTitle("Add Server")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) { dismiss() }

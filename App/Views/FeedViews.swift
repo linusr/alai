@@ -11,7 +11,7 @@ struct MessageFeed<Empty: View>: View {
     var body: some View {
         ListFeed(messages: messages, showsTopic: showsTopic)
             .overlay { if messages.isEmpty { empty() } }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.groupedBackground)
     }
 }
 
@@ -62,7 +62,7 @@ private struct FeedCard: View {
                 MessageCard(message: message, isUnread: !stored.isRead, tint: subscription.tint, server: subscription.serverURL)
             }
             .contextMenu {
-                Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.message }
+                Button("Copy", systemImage: "doc.on.doc") { message.message.map(Platform.copy) }
                 Button("Delete", systemImage: "trash", role: .destructive) {
                     SpotlightIndex.remove(keys: [stored.key])
                     context.delete(stored)
@@ -118,7 +118,7 @@ struct SearchResults: View {
 
     var body: some View {
         ListFeed(messages: results.filter { $0.subscription != nil }, showsTopic: true)
-            .background(Color(.systemGroupedBackground))
+            .background(Color.groupedBackground)
             .overlay {
                 if results.isEmpty { ContentUnavailableView.search(text: query) }
             }
@@ -133,7 +133,7 @@ struct CalendarHome: View {
 
     var body: some View {
         DayFeed(messages: messages.filter { $0.subscription != nil }, showsTopic: true)
-            .background(Color(.systemGroupedBackground))
+            .background(Color.groupedBackground)
     }
 }
 
@@ -458,9 +458,9 @@ struct OpenedMessage: View {
                         .padding()
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(Color.groupedBackground)
             .navigationTitle(stored.subscription?.title ?? "")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", role: .confirm) { dismiss() }
@@ -495,10 +495,10 @@ struct AllNotificationsView: View {
             ContentUnavailableView("No Notifications", systemImage: "tray", description: Text("Messages from all your topics show up here."))
         }
         .navigationTitle("All Notifications")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitle()
         .refreshable { await model.refreshAll() }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .trailingAction) {
                 Button("Mark All Read", systemImage: "checkmark.circle") {
                     Task {
                         for subscription in subscriptions where subscription.unreadCount > 0 {

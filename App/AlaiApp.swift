@@ -9,11 +9,7 @@ struct AlaiApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environment(delegate.model)
-                .environment(delegate.model.servers)
-                .environment(delegate.model.push)
-                .environment(delegate.model.router)
-                .modelContainer(delegate.model.container)
+                .appEnvironment(delegate.model)
                 .onOpenURL { url in
                     delegate.model.router.open(url)
                 }

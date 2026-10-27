@@ -55,7 +55,7 @@ struct BrowseTopicsView: View {
             }
         }
         .navigationTitle("Browse \(ServerURL.shortDisplay(server))")
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitle()
         .refreshable { await load() }
         .task { await load() }
     }

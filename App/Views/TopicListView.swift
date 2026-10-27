@@ -12,7 +12,8 @@ struct TopicListView: View {
     @State private var pendingUnsubscribe: Subscription?
 
     private var sorted: [Subscription] {
-        subscriptions.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
+        // A query can still hold models deleted in the same update, such as when a server is removed
+        subscriptions.filter { !$0.isDeleted }.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
     }
 
     var body: some View {
@@ -86,7 +87,7 @@ struct TopicListView: View {
     }
 }
 
-private struct AllNotificationsRow: View {
+struct AllNotificationsRow: View {
     let unread: Int
 
     var body: some View {
@@ -112,7 +113,7 @@ private struct AllNotificationsRow: View {
     }
 }
 
-private struct TopicRow: View {
+struct TopicRow: View {
     let subscription: Subscription
 
     var body: some View {
@@ -198,6 +199,7 @@ private struct HomeActions: ViewModifier {
     @State private var isShowingSettings = false
 
     func body(content: Content) -> some View {
+        #if os(iOS)
         content
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -218,5 +220,8 @@ private struct HomeActions: ViewModifier {
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
             .browseTopicsSheet(server: $browsingServer)
             .sheet(isPresented: $isShowingSettings) { SettingsView() }
+        #else
+        content
+        #endif
     }
 }

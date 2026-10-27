@@ -35,7 +35,7 @@ struct RootView: View {
                     NavigationStack {
                         CalendarHome()
                             .navigationTitle("Calendar")
-                            .navigationBarTitleDisplayMode(.inline)
+                            .inlineNavigationTitle()
                             .homeActions()
                     }
                 }

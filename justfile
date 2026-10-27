@@ -53,6 +53,27 @@ testflight: generate
         -exportPath build/export -allowProvisioningUpdates
     echo "Uploaded build $build. It shows in TestFlight once App Store Connect finishes processing."
 
+# Build and launch the Mac app
+mac: generate
+    xcodebuild -project Alai.xcodeproj -scheme AlaiMac -configuration Debug -destination 'platform=macOS,arch=arm64' \
+        -derivedDataPath build/mac -allowProvisioningUpdates -quiet build
+    open build/mac/Build/Products/Debug/Alai.app
+
+# Archive the Mac app and upload it to App Store Connect for TestFlight
+testflight-mac: generate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    build=$(date -u +%Y%m%d%H%M)
+    /bin/rm -rf build/AlaiMac.xcarchive build/export-mac
+    echo "Archiving Mac build $build"
+    xcodebuild archive -project Alai.xcodeproj -scheme AlaiMac -configuration Release \
+        -destination 'generic/platform=macOS' -archivePath build/AlaiMac.xcarchive \
+        -allowProvisioningUpdates -quiet CURRENT_PROJECT_VERSION="$build"
+    echo "Uploading Mac build $build"
+    xcodebuild -exportArchive -archivePath build/AlaiMac.xcarchive -exportOptionsPlist ExportOptions.plist \
+        -exportPath build/export-mac -allowProvisioningUpdates
+    echo "Uploaded Mac build $build. It shows in TestFlight once App Store Connect finishes processing."
+
 # Push the store listing in store/ to App Store Connect; with a build number, also attach that build
 listing build="":
     uv run -q store/asc.py listing {{ build }}

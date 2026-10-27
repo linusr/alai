@@ -27,17 +27,17 @@ struct TopicView: View {
         }
         .searchable(text: $query, prompt: "Search \(subscription.title)")
         .navigationTitle(subscription.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .inlineNavigationTitle()
         .refreshable { await model.refresh(subscription) }
         .task { await model.markRead(subscription) }
         .onChange(of: subscription.messages.count) {
             Task { await model.markRead(subscription) }
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .trailingAction) {
                 Button("Send Message", systemImage: "square.and.pencil") { isComposing = true }
             }
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .trailingAction) {
                 Menu("More", systemImage: "ellipsis") {
                     Button("Edit Topic", systemImage: "pencil") { isEditing = true }
                     Button("Add Device Key", systemImage: "key") { isAddingDevice = true }
@@ -76,7 +76,7 @@ private struct EmptyTopicView: View {
                     .textSelection(.enabled)
             }
         } actions: {
-            Button("Copy Command", systemImage: "doc.on.doc") { UIPasteboard.general.string = command }
+            Button("Copy Command", systemImage: "doc.on.doc") { Platform.copy(command) }
         }
     }
 }

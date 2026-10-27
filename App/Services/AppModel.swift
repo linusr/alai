@@ -14,7 +14,10 @@ final class AppModel {
     let push = PushRegistrar()
     let router = Router()
     @ObservationIgnored private lazy var live = LiveUpdates(model: self)
+    #if os(iOS)
     @ObservationIgnored private let watch = WatchBridge()
+    #endif
+    @ObservationIgnored private(set) lazy var cloud = CloudSync(model: self)
     private(set) var isRefreshing = false
     private(set) var lastError: String?
     /// Seconds each server keeps messages, keyed by server URL string; persisted for offline launches.
@@ -245,12 +248,26 @@ final class AppModel {
         let snapshot = RecentSnapshot(entries: entries, unreadCount: unread)
         try? snapshot.save()
         WidgetCenter.shared.reloadAllTimelines()
+        cloud.upload()
 
+        #if os(iOS)
         let configuration = WatchConfiguration(
             servers: servers.servers.map { WatchConfiguration.Server(url: $0, credential: servers.credential(for: $0)) },
             topics: subscriptions.map { WatchConfiguration.Topic(baseURL: $0.serverURL, topic: $0.topic, title: $0.title, symbol: $0.symbol, tint: $0.tint.rawValue) }
         )
         watch.send(configuration: configuration, snapshot: snapshot)
+        #endif
+    }
+
+    /// Starts iCloud syncing of credentials, servers and topics.
+    func startSync() {
+        #if DEBUG
+        // Seeded runs load demo servers and topics, which must not reach the real iCloud state
+        if UserDefaults.standard.string(forKey: "seedServer") != nil || UserDefaults.standard.bool(forKey: "resetState") { return }
+        #endif
+        servers.syncCredentials()
+        cloud.isEnabled = true
+        cloud.start()
     }
 
     /// Asked after content is loaded, since the system prompt blocks until answered.

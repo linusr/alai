@@ -8,7 +8,13 @@ import NtfyKit
 final class ServerDirectory {
     private static let serversKey = "servers"
     private let defaults = SharedContainer.defaults
-    private let credentials = CredentialStore()
+    private let credentials: CredentialStore = {
+        #if DEBUG
+        // Seeded runs use demo accounts, whose passwords must stay off iCloud Keychain
+        if UserDefaults.standard.string(forKey: "seedServer") != nil { return CredentialStore(synchronizable: false) }
+        #endif
+        return CredentialStore()
+    }()
 
     private(set) var servers: [URL]
 
@@ -22,6 +28,18 @@ final class ServerDirectory {
         try credentials.save(credential, for: url)
         if !servers.contains(url) { servers.append(url) }
         persist()
+    }
+
+    /// Adds a server another device synced; its credential arrives through iCloud Keychain.
+    func adopt(_ url: URL) {
+        guard !servers.contains(url) else { return }
+        servers.append(url)
+        persist()
+    }
+
+    /// Moves credentials saved before iCloud Keychain syncing into the synced keychain.
+    func syncCredentials() {
+        servers.forEach(credentials.makeSynchronizable)
     }
 
     func remove(_ url: URL) {
