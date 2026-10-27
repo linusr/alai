@@ -6,7 +6,6 @@ struct MessageCard: View {
     let isUnread: Bool
     let tint: TopicTint
     let server: URL
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -45,7 +44,7 @@ struct MessageCard: View {
         }
         .contentShape(.rect(cornerRadius: 18))
         .onTapGesture {
-            if let click = message.click, let url = URL(string: click) { openURL(url) }
+            if let click = message.click, let url = URL(string: click) { Task { await Platform.open(url) } }
         }
         .accessibilityElement(children: .combine)
     }
@@ -88,7 +87,6 @@ struct AttachmentView: View {
     let attachment: Attachment
     let server: URL
     @Environment(ServerDirectory.self) private var servers
-    @Environment(\.openURL) private var openURL
     @State private var image: PlatformImage?
 
     var body: some View {
@@ -108,7 +106,7 @@ struct AttachmentView: View {
                 }
             } else {
                 Button {
-                    if let url = URL(string: attachment.url) { openURL(url) }
+                    if let url = URL(string: attachment.url) { Task { await Platform.open(url) } }
                 } label: {
                     Label {
                         VStack(alignment: .leading) {

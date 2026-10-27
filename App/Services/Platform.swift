@@ -1,4 +1,5 @@
 import SwiftUI
+import NtfyKit
 #if canImport(UIKit)
 import UIKit
 typealias PlatformImage = UIImage
@@ -28,10 +29,15 @@ enum Platform {
         #endif
     }
 
+    /// Opens a URL from a message. Anyone who can publish to a topic chooses these, so local files never
+    /// open, and on Mac, where any registered scheme launches its app without asking, only web, mail,
+    /// phone, message and Alai links do.
     static func open(_ url: URL) async {
+        guard let scheme = url.scheme?.lowercased(), scheme != "file" else { return }
         #if canImport(UIKit)
         await UIApplication.shared.open(url)
         #else
+        guard ["http", "https", "mailto", "tel", "sms", TopicStyle.linkScheme].contains(scheme) else { return }
         NSWorkspace.shared.open(url)
         #endif
     }
