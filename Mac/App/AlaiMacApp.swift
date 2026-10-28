@@ -20,9 +20,8 @@ struct AlaiMacApp: App {
         .commands { AlaiCommands(model: delegate.model) }
 
         Settings {
-            SettingsView()
+            MacSettingsView()
                 .appEnvironment(delegate.model)
-                .frame(width: 520, height: 560)
         }
     }
 }

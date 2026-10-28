@@ -62,6 +62,8 @@ extension View {
             .environment(model.push)
             .environment(model.router)
             .modelContainer(model.container)
+            // Grouped forms are the iPhone default; on Mac they replace the bare label-column layout
+            .formStyle(.grouped)
     }
 }
 
