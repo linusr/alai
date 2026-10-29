@@ -1,10 +1,11 @@
 import CryptoKit
 import Foundation
+import UserNotifications
 import NtfyKit
 
 /// Mirrors servers and topic subscriptions through iCloud key-value storage, so every device on the same
-/// iCloud account has the same topics; credentials follow through iCloud Keychain. Read state and muting
-/// stay per device.
+/// iCloud account has the same topics; credentials follow through iCloud Keychain. Each topic's read state
+/// syncs as a "read through" time; muting stays per device.
 ///
 /// Each server and topic is its own record, and a device only writes records it changed, with removals left
 /// as dated tombstones. A device that has not downloaded the iCloud state yet therefore cannot erase other
@@ -33,6 +34,10 @@ final class CloudSync {
     /// Keys the user removed on this device. Only these become tombstones, so an item missing because a
     /// local read failed is never announced as removed.
     private static let removalsKey = "cloudSyncRemovals"
+    /// Each topic's read-through time: messages at or before it are read on every device.
+    private static let readPrefix = "read."
+    /// The latest read-through time this device has seen or written for each topic.
+    private static let readStateKey = "cloudReadState"
     /// Long enough for every device to have seen a removal; older tombstones are deleted to stay within iCloud's 1024-key limit.
     private static let tombstoneLifetime: TimeInterval = 30 * 86_400
 
@@ -71,6 +76,8 @@ final class CloudSync {
             await applyRemote(honorTombstones: !accountChanged)
             hasApplied = true
             upload()
+            // Applies read-through times other devices wrote, and writes this device's
+            await model.publish()
         }
     }
 
@@ -104,6 +111,7 @@ final class CloudSync {
             if remote[key]?.isDeleted != true {
                 write(Record(server: known.server, topic: known.topic, fields: nil, isDeleted: true, updated: removedAt), key: key)
             }
+            store.removeObject(forKey: Self.readKey(key))
             synced[key] = nil
         }
         Self.removals = removals
@@ -117,6 +125,7 @@ final class CloudSync {
     static func forgetSyncedState() {
         UserDefaults.standard.removeObject(forKey: syncedKey)
         UserDefaults.standard.removeObject(forKey: removalsKey)
+        UserDefaults.standard.removeObject(forKey: readStateKey)
     }
 
     /// Records that the user removed a server or topic here, for the next upload to announce.
@@ -130,6 +139,66 @@ final class CloudSync {
             return stored.mapValues(Date.init(timeIntervalSince1970:))
         }
         set { UserDefaults.standard.set(newValue.mapValues(\.timeIntervalSince1970), forKey: removalsKey) }
+    }
+
+    // MARK: Read state
+
+    /// Marks messages read up to each topic's latest read-through time, from iCloud or written here, and
+    /// removes their delivered notifications.
+    func applyReadState() async {
+        guard isEnabled else { return }
+        var known = Self.readState
+        for (key, value) in store.dictionaryRepresentation where key.hasPrefix(Self.readPrefix) {
+            if let time = value as? Double, time > known[key] ?? 0 { known[key] = time }
+        }
+        Self.readState = known
+        var readThrough: [String: Date] = [:]
+        for subscription in model.store.subscriptions() where !subscription.isDeleted {
+            guard let time = known[Self.readKey(Self.key(server: subscription.baseURL, topic: subscription.topic))] else { continue }
+            let through = Date(timeIntervalSince1970: time)
+            let newlyRead = subscription.messages.filter { !$0.isRead && $0.time <= through }
+            guard !newlyRead.isEmpty else { continue }
+            newlyRead.forEach { $0.isRead = true }
+            readThrough[subscription.key] = through
+        }
+        guard !readThrough.isEmpty else { return }
+        try? model.container.mainContext.save()
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications().filter { notification in
+            guard let through = readThrough[notification.request.content.threadIdentifier] else { return false }
+            return PushPayload(userInfo: notification.request.content.userInfo).map { $0.message.date <= through } ?? true
+        }
+        center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier))
+    }
+
+    /// Writes each topic's read-through time where it moved forward here: the newest message such that it and
+    /// every message before it are read, so reading one message out of order does not mark older ones read.
+    func uploadReadState() {
+        guard isEnabled, hasApplied else { return }
+        var known = Self.readState
+        var changed = false
+        for subscription in model.store.subscriptions() where !subscription.isDeleted {
+            var through: Date?
+            for message in subscription.messages.sorted(by: { $0.time < $1.time }) {
+                guard message.isRead else { break }
+                through = message.time
+            }
+            let key = Self.readKey(Self.key(server: subscription.baseURL, topic: subscription.topic))
+            guard let time = through?.timeIntervalSince1970, time > known[key] ?? 0 else { continue }
+            store.set(time, forKey: key)
+            known[key] = time
+            changed = true
+        }
+        if changed { Self.readState = known }
+    }
+
+    private static func readKey(_ recordKey: String) -> String {
+        readPrefix + recordKey.dropFirst(keyPrefix.count)
+    }
+
+    private static var readState: [String: Double] {
+        get { UserDefaults.standard.dictionary(forKey: readStateKey) as? [String: Double] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: readStateKey) }
     }
 
     // MARK: Records

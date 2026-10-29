@@ -280,6 +280,8 @@ final class AppModel {
 
     /// Updates the badge, the widgets' snapshot and the watch.
     func publish() async {
+        await cloud.applyReadState()
+        cloud.uploadReadState()
         let unread = store.subscriptions().reduce(0) { $0 + $1.unreadCount }
         try? await UNUserNotificationCenter.current().setBadgeCount(unread)
         let subscriptions = store.subscriptions().filter { !$0.isDeleted }
