@@ -150,7 +150,7 @@ final class CloudSync {
         guard isEnabled else { return }
         var known = Self.readState
         var advanced: Set<String> = []
-        let ceiling = Self.readThroughCeiling
+        let ceiling = readThroughCeiling()
         for (key, value) in store.dictionaryRepresentation where key.hasPrefix(Self.readPrefix) {
             guard let time = value as? Double, time <= ceiling, time > known[key] ?? 0 else { continue }
             known[key] = time
@@ -182,11 +182,10 @@ final class CloudSync {
     /// latest known time is written again whenever iCloud holds less, which an offline device's older write or
     /// a write iCloud discarded before its first download can leave.
     func uploadReadState() {
-        guard isEnabled, hasApplied else { return }
+        guard isEnabled, hasApplied, !isApplying else { return }
         var known = Self.readState
         var changed = false
         let remote = remoteRecords()
-        let ceiling = Self.readThroughCeiling
         for subscription in model.store.subscriptions() where !subscription.isDeleted {
             let recordKey = Self.key(server: subscription.baseURL, topic: subscription.topic)
             // A topic removed elsewhere loses its read-through time with it
@@ -196,7 +195,7 @@ final class CloudSync {
             let through = subscription.messages.lazy
                 .filter { message in message.isRead && (firstUnread.map { message.time < $0 } ?? true) }
                 .map(\.time).max()?.timeIntervalSince1970
-            let target = max(known[key] ?? 0, through.map { min($0, ceiling) } ?? 0)
+            let target = max(known[key] ?? 0, through ?? 0)
             guard target > 0 else { continue }
             if target > known[key] ?? 0 {
                 known[key] = target
@@ -209,9 +208,11 @@ final class CloudSync {
         if changed { Self.readState = known }
     }
 
-    /// Times beyond this come from a wrong clock and would mark every later message read.
-    private static var readThroughCeiling: Double {
-        Date.now.addingTimeInterval(86_400).timeIntervalSince1970
+    /// A read-through time beyond this was written from a wrong clock and would mark every later message
+    /// read. Message times come from the servers, so the newest one bounds it along with this device's clock.
+    private func readThroughCeiling() -> Double {
+        let newest = model.store.subscriptions().compactMap { $0.latestMessage?.time }.max() ?? .distantPast
+        return max(Date.now, newest).addingTimeInterval(86_400).timeIntervalSince1970
     }
 
     private func forgetReadThrough(_ recordKey: String) {
@@ -303,6 +304,7 @@ final class CloudSync {
                     await model.removeServer(server, announce: false)
                     for (topicKey, topicRecord) in synced where topicRecord.server == record.server && topicRecord.topic != nil {
                         synced[topicKey] = nil
+                        forgetReadThrough(topicKey)
                     }
                     changed = true
                 }
@@ -333,6 +335,8 @@ final class CloudSync {
                     context.delete(existing)
                     forgetReadThrough(key)
                     changed = true
+                } else if existing == nil {
+                    forgetReadThrough(key)
                 }
                 // A kept topic is announced again, since the tombstone otherwise hides it from other devices
                 synced[key] = nil
