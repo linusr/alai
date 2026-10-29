@@ -34,8 +34,8 @@ other ntfy servers work through the live stream and background refresh.
 
 ## iCloud sync
 
-Credentials are end-to-end encrypted by iCloud Keychain. Server URLs and topic names are stored in the app's iCloud
-key-value storage, which Apple encrypts in transit and at rest but not end to end. Anyone who learns an unreserved
+Credentials are end-to-end encrypted by iCloud Keychain. Server URLs, topic names and each topic's read-through time
+are stored in the app's iCloud key-value storage, which Apple encrypts in transit and at rest but not end to end. Anyone who learns an unreserved
 topic's name can read and publish to it, so reserve topics whose names must stay private.
 
 ## Delivery

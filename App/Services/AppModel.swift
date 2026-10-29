@@ -278,7 +278,7 @@ final class AppModel {
         await publish()
     }
 
-    /// Updates the badge, the widgets' snapshot and the watch.
+    /// Applies and uploads synced read state, then updates the badge, the widgets' snapshot and the watch.
     func publish() async {
         await cloud.applyReadState()
         cloud.uploadReadState()
