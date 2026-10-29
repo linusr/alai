@@ -46,6 +46,9 @@ final class CloudSync {
     private unowned let model: AppModel
     /// Off until `start()`, so publishing never uploads before the first merge with iCloud.
     var isEnabled = false
+    /// Read-through times waiting to be written; written a few seconds apart, since iCloud throttles frequent writes.
+    private var pendingReadThrough: [String: Double] = [:]
+    private var readThroughFlush: Task<Void, Never>?
     /// Suppresses uploads while a remote change is half applied.
     private var isApplying = false
     /// Uploads wait for the first apply, so a restored or new device cannot write over newer iCloud records.
@@ -119,6 +122,11 @@ final class CloudSync {
             store.removeObject(forKey: key)
             store.removeObject(forKey: Self.readKey(key))
         }
+        // Read-through times whose topic is neither here nor in iCloud belong to nothing
+        for key in remoteKeys where key.hasPrefix(Self.readPrefix) {
+            let recordKey = Self.keyPrefix + key.dropFirst(Self.readPrefix.count)
+            if local[recordKey] == nil, !remoteKeys.contains(recordKey) { store.removeObject(forKey: key) }
+        }
         if synced != previous { saveSynced(synced) }
     }
 
@@ -178,7 +186,8 @@ final class CloudSync {
     }
 
     /// Writes each topic's read-through time: the newest read message older than every unread one, so reading
-    /// one message out of order, or one of several from the same second, does not mark the others read. The
+    /// one message out of order, or one of several stored from the same second, does not mark the others read.
+    /// A message arriving later with the same second as the read-through counts as read. The
     /// latest known time is written again whenever iCloud holds less, which an offline device's older write or
     /// a write iCloud discarded before its first download can leave.
     func uploadReadState() {
@@ -186,6 +195,7 @@ final class CloudSync {
         var known = Self.readState
         var changed = false
         let remote = remoteRecords()
+        let ceiling = readThroughCeiling()
         for subscription in model.store.subscriptions() where !subscription.isDeleted {
             let recordKey = Self.key(server: subscription.baseURL, topic: subscription.topic)
             // A topic removed elsewhere loses its read-through time with it
@@ -201,11 +211,20 @@ final class CloudSync {
                 known[key] = target
                 changed = true
             }
-            if (store.object(forKey: key) as? Double ?? 0) < target {
-                store.set(target, forKey: key)
+            // Below this device's time, or beyond any plausible one, iCloud's value is replaced with it
+            let stored = store.object(forKey: key) as? Double ?? 0
+            if stored < target || stored > ceiling {
+                pendingReadThrough[key] = target
             }
         }
         if changed { Self.readState = known }
+        guard !pendingReadThrough.isEmpty, readThroughFlush == nil else { return }
+        readThroughFlush = Task {
+            try? await Task.sleep(for: .seconds(5))
+            for (key, time) in pendingReadThrough { store.set(time, forKey: key) }
+            pendingReadThrough = [:]
+            readThroughFlush = nil
+        }
     }
 
     /// A read-through time beyond this was written from a wrong clock and would mark every later message

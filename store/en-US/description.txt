@@ -13,7 +13,7 @@ BUILT FOR APPLE DEVICES
 • Home Screen and Lock Screen widgets with recent notifications
 • Apple Watch app with complications for the latest message and unread count
 • Mac app with a sidebar of your topics, menu commands and keyboard shortcuts
-• Your servers, sign-ins and topics sync between iPhone and Mac through iCloud
+• Your servers, sign-ins, topics and read status sync between iPhone and Mac through iCloud
 • Time-sensitive delivery for high-priority alerts
 • Swipe to mute, mark as read or unsubscribe
 

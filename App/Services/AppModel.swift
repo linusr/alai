@@ -202,8 +202,11 @@ final class AppModel {
         // The Mac has no background refresh, so the stream it keeps open notifies for servers APNs does not
         // reach; while registration is pending with a token in hand it stays quiet, since APNs may deliver too
         let pending = push.status[server] == nil && push.token != nil
-        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending, allowsStreamNotification() {
-            await LocalNotifications.post(message, baseURL: server)
+        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending {
+            await cloud.applyReadState()
+            if !subscription.isDeleted, !isRead(message, in: subscription), allowsStreamNotification() {
+                await LocalNotifications.post(message, baseURL: server)
+            }
         }
         #endif
         await publish()
@@ -227,16 +230,27 @@ final class AppModel {
     func backgroundRefresh() async -> Bool {
         store.ingestInbox()
         var delivered = false
+        var fresh: [(subscription: Subscription, messages: [Message])] = []
         for subscription in store.subscriptions() {
-            let fresh = await refresh(subscription)
-            guard !fresh.isEmpty, !subscription.isMuted, push.status[subscription.serverURL] != .registered else { continue }
-            for message in fresh.suffix(5) {
+            let messages = await refresh(subscription)
+            guard !messages.isEmpty, !subscription.isDeleted, !subscription.isMuted, push.status[subscription.serverURL] != .registered else { continue }
+            fresh.append((subscription, messages))
+        }
+        // Messages read on another device are not announced here
+        await cloud.applyReadState()
+        for (subscription, messages) in fresh where !subscription.isDeleted {
+            let unread = messages.filter { !isRead($0, in: subscription) }
+            for message in unread.suffix(5) {
                 await LocalNotifications.post(message, baseURL: subscription.serverURL)
             }
-            delivered = true
+            delivered = delivered || !unread.isEmpty
         }
         await publish()
         return delivered
+    }
+
+    private func isRead(_ message: Message, in subscription: Subscription) -> Bool {
+        store.message(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID))?.isRead ?? false
     }
 
     func setLiveUpdates(active: Bool) {
@@ -281,7 +295,6 @@ final class AppModel {
     /// Applies and uploads synced read state, then updates the badge, the widgets' snapshot and the watch.
     func publish() async {
         await cloud.applyReadState()
-        cloud.uploadReadState()
         let unread = store.subscriptions().reduce(0) { $0 + $1.unreadCount }
         try? await UNUserNotificationCenter.current().setBadgeCount(unread)
         let subscriptions = store.subscriptions().filter { !$0.isDeleted }
@@ -297,6 +310,7 @@ final class AppModel {
         try? snapshot.save()
         WidgetCenter.shared.reloadAllTimelines()
         cloud.upload()
+        cloud.uploadReadState()
 
         #if os(iOS)
         let configuration = WatchConfiguration(
@@ -307,7 +321,7 @@ final class AppModel {
         #endif
     }
 
-    /// Starts iCloud syncing of credentials, servers and topics.
+    /// Starts iCloud syncing of credentials, servers, topics and read state.
     func startSync() {
         #if DEBUG
         // Seeded runs load demo servers and topics, which must not reach the real iCloud state
