@@ -45,7 +45,7 @@ struct DeviceKeyView: View {
                         Text(token.token)
                             .fontDesign(.monospaced)
                             .textSelection(.enabled)
-                        Button("Copy Key", systemImage: "doc.on.doc") { UIPasteboard.general.string = token.token }
+                        Button("Copy Key", systemImage: "doc.on.doc") { Platform.copy(token.token) }
                     } header: {
                         Text("Key for \(label)")
                     } footer: {
@@ -55,7 +55,7 @@ struct DeviceKeyView: View {
                         Text(command(token.token))
                             .font(.caption.monospaced())
                             .textSelection(.enabled)
-                        Button("Copy Command", systemImage: "terminal") { UIPasteboard.general.string = command(token.token) }
+                        Button("Copy Command", systemImage: "terminal") { Platform.copy(command(token.token)) }
                         ShareLink(item: command(token.token)) { Label("Share", systemImage: "square.and.arrow.up") }
                     }
                 } else {
@@ -73,7 +73,7 @@ struct DeviceKeyView: View {
                 }
             }
             .navigationTitle("Device Key")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(token == nil ? "Cancel" : "Done", role: token == nil ? .cancel : .confirm) { dismiss() }

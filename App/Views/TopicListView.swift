@@ -12,7 +12,8 @@ struct TopicListView: View {
     @State private var pendingUnsubscribe: Subscription?
 
     private var sorted: [Subscription] {
-        subscriptions.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
+        // A query can still hold models deleted in the same update, such as when a server is removed
+        subscriptions.filter { !$0.isDeleted }.sorted { ($0.latestMessage?.time ?? $0.createdAt) > ($1.latestMessage?.time ?? $1.createdAt) }
     }
 
     var body: some View {
@@ -22,7 +23,7 @@ struct TopicListView: View {
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
             .browseTopicsSheet(server: $browsingServer)
             .confirmationDialog(
-                "Unsubscribe from \(pendingUnsubscribe?.title ?? "")?",
+                "Unsubscribe from \(pendingUnsubscribe.flatMap { $0.isDeleted ? nil : $0.title } ?? "")?",
                 isPresented: Binding(get: { pendingUnsubscribe != nil }, set: { if !$0 { pendingUnsubscribe = nil } }),
                 titleVisibility: .visible
             ) {
@@ -33,15 +34,15 @@ struct TopicListView: View {
                     }
                 }
             } message: {
-                Text("Its messages will be removed from this device.")
+                Text("It is removed, with its messages, from all your devices that share this iCloud account.")
             }
     }
 
     private var topicList: some View {
         List {
-            if !subscriptions.isEmpty {
+            if !sorted.isEmpty {
                 NavigationLink(value: Router.allNotifications) {
-                    AllNotificationsRow(unread: subscriptions.reduce(0) { $0 + $1.unreadCount })
+                    AllNotificationsRow(unread: sorted.reduce(0) { $0 + $1.unreadCount })
                 }
             }
             ForEach(sorted) { subscription in
@@ -69,7 +70,7 @@ struct TopicListView: View {
         }
         .refreshable { await model.refreshAll() }
         .overlay {
-            if subscriptions.isEmpty {
+            if sorted.isEmpty {
                 ContentUnavailableView {
                     Label("No Topics Yet", systemImage: "bell.badge")
                 } description: {
@@ -86,7 +87,7 @@ struct TopicListView: View {
     }
 }
 
-private struct AllNotificationsRow: View {
+struct AllNotificationsRow: View {
     let unread: Int
 
     var body: some View {
@@ -112,7 +113,7 @@ private struct AllNotificationsRow: View {
     }
 }
 
-private struct TopicRow: View {
+struct TopicRow: View {
     let subscription: Subscription
 
     var body: some View {
@@ -198,6 +199,7 @@ private struct HomeActions: ViewModifier {
     @State private var isShowingSettings = false
 
     func body(content: Content) -> some View {
+        #if os(iOS)
         content
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -218,5 +220,8 @@ private struct HomeActions: ViewModifier {
             .sheet(isPresented: $isAddingTopic) { AddTopicView() }
             .browseTopicsSheet(server: $browsingServer)
             .sheet(isPresented: $isShowingSettings) { SettingsView() }
+        #else
+        content
+        #endif
     }
 }

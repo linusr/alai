@@ -26,8 +26,7 @@ struct ComposeView: View {
                         ForEach(Priority.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
                     TextField("Tags, comma separated", text: $tags)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .identifierEntry()
                 } footer: {
                     Text("Tags like `warning` or `tada` show as emoji.")
                 }
@@ -36,7 +35,7 @@ struct ComposeView: View {
                 }
             }
             .navigationTitle("Send to \(subscription.title)")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) { dismiss() }

@@ -3,15 +3,10 @@ import UserNotifications
 import NtfyKit
 
 struct SettingsView: View {
-    @Environment(AppModel.self) private var model
     @Environment(ServerDirectory.self) private var servers
     @Environment(PushRegistrar.self) private var push
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
     @State private var isAddingServer = false
-    @State private var authorization: UNAuthorizationStatus = .notDetermined
-    @State private var isSyncing = false
-    @State private var syncResult: String?
 
     var body: some View {
         NavigationStack {
@@ -30,65 +25,44 @@ struct SettingsView: View {
                 } footer: {
                     Text("Instant delivery needs a server with APNs enabled for this app.")
                 }
-
-                Section("Notifications") {
-                    LabeledContent("Permission") {
-                        Text(authorizationLabel).foregroundStyle(authorization == .authorized ? .green : .orange)
-                    }
-                    Button("Notification Settings", systemImage: "gear") {
-                        openURL(URL(string: UIApplication.openNotificationSettingsURLString)!)
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            isSyncing = true
-                            let added = await model.syncAll()
-                            syncResult = added == 0 ? String(localized: "Already up to date") : String(localized: "\(added) messages added")
-                            isSyncing = false
-                        }
-                    } label: {
-                        HStack {
-                            Label("Sync All Messages", systemImage: "arrow.triangle.2.circlepath")
-                            Spacer()
-                            if isSyncing {
-                                ProgressView()
-                            } else if let syncResult {
-                                Text(syncResult).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .disabled(isSyncing)
-                } header: {
-                    Text("Messages")
-                } footer: {
-                    Text("Downloads every message your servers still hold for your topics, including ones deleted on this iPhone. Servers keep messages only for a limited time, set by their cache duration.")
-                }
-
-                Section("About") {
-                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
-                    Link(destination: URL(string: "https://apphut.ca/alai/support.html")!) {
-                        Label("Help & Support", systemImage: "questionmark.circle")
-                    }
-                    Link(destination: URL(string: "https://apphut.ca/alai/privacy.html")!) {
-                        Label("Privacy Policy", systemImage: "hand.raised")
-                    }
-                }
+                NotificationPermissionSection()
+                MessageSyncSection()
+                AboutSection()
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
+            #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", role: .confirm) { dismiss() }
                 }
             }
+            #endif
             .sheet(isPresented: $isAddingServer) { AddServerView() }
-            .task { authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
         }
     }
+}
 
-    private var authorizationLabel: String {
+/// Notification permission and a link to the system settings for it.
+struct NotificationPermissionSection: View {
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var authorization: UNAuthorizationStatus = .notDetermined
+
+    var body: some View {
+        Section("Notifications") {
+            LabeledContent("Permission") {
+                Text(label).foregroundStyle(authorization == .authorized ? .green : .orange)
+            }
+            Button("Notification Settings", systemImage: "gear") {
+                openURL(Platform.notificationSettingsURL)
+            }
+        }
+        // Re-read on return from System Settings, where the permission is changed
+        .task(id: scenePhase) { authorization = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus }
+    }
+
+    private var label: String {
         switch authorization {
         case .authorized, .provisional, .ephemeral: String(localized: "Allowed")
         case .denied: String(localized: "Denied")
@@ -97,7 +71,55 @@ struct SettingsView: View {
     }
 }
 
-private struct ServerRow: View {
+struct MessageSyncSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var isSyncing = false
+    @State private var syncResult: String?
+
+    var body: some View {
+        Section {
+            Button {
+                Task {
+                    isSyncing = true
+                    let added = await model.syncAll()
+                    syncResult = added == 0 ? String(localized: "Already up to date") : String(localized: "\(added) messages added")
+                    isSyncing = false
+                }
+            } label: {
+                HStack {
+                    Label("Sync All Messages", systemImage: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    if isSyncing {
+                        ProgressView().controlSize(.small)
+                    } else if let syncResult {
+                        Text(syncResult).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .disabled(isSyncing)
+        } header: {
+            Text("Messages")
+        } footer: {
+            Text("Downloads every message your servers still hold for your topics, including ones deleted on this device. Servers keep messages only for a limited time, set by their cache duration.")
+        }
+    }
+}
+
+struct AboutSection: View {
+    var body: some View {
+        Section("About") {
+            LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")
+            Link(destination: URL(string: "https://apphut.ca/alai/support.html")!) {
+                Label("Help & Support", systemImage: "questionmark.circle")
+            }
+            Link(destination: URL(string: "https://apphut.ca/alai/privacy.html")!) {
+                Label("Privacy Policy", systemImage: "hand.raised")
+            }
+        }
+    }
+}
+
+struct ServerRow: View {
     let server: URL
     let isDefault: Bool
     let status: PushRegistrar.Status
@@ -129,7 +151,7 @@ private struct ServerRow: View {
     }
 }
 
-private struct ServerDetailView: View {
+struct ServerDetailView: View {
     let server: URL
     @Environment(AppModel.self) private var model
     @Environment(ServerDirectory.self) private var servers
@@ -162,7 +184,7 @@ private struct ServerDetailView: View {
             Section {
                 Button("Remove Server", role: .destructive) { isConfirmingRemoval = true }
             } footer: {
-                Text("Removes its topics and messages from this device.")
+                Text("Removes the server, its topics and messages, and its sign-in from all your devices that share this iCloud account.")
             }
         }
         .navigationTitle(ServerURL.shortDisplay(server))
@@ -215,10 +237,7 @@ struct AddServerView: View {
             Form {
                 Section {
                     TextField("alerts.example.com", text: $address)
-                        .keyboardType(.URL)
-                        .textContentType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .urlEntry()
                 } header: {
                     Text("Server")
                 }
@@ -233,8 +252,7 @@ struct AddServerView: View {
                     case .password:
                         TextField("Username", text: $username)
                             .textContentType(.username)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .identifierEntry()
                         SecureField("Password", text: $password)
                             .textContentType(.password)
                     case .token:
@@ -246,7 +264,7 @@ struct AddServerView: View {
                 }
             }
             .navigationTitle("Add Server")
-            .navigationBarTitleDisplayMode(.inline)
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", role: .cancel) { dismiss() }
@@ -273,6 +291,7 @@ struct AddServerView: View {
                 try servers.add(url, credential: credential)
                 await model.registerForPush()
                 await model.importTopics(from: url)
+                await model.publish()
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

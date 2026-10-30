@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Observation
 import SwiftData
 import UserNotifications
@@ -14,7 +15,10 @@ final class AppModel {
     let push = PushRegistrar()
     let router = Router()
     @ObservationIgnored private lazy var live = LiveUpdates(model: self)
+    #if os(iOS)
     @ObservationIgnored private let watch = WatchBridge()
+    #endif
+    @ObservationIgnored private(set) lazy var cloud = CloudSync(model: self)
     private(set) var isRefreshing = false
     private(set) var lastError: String?
     /// Seconds each server keeps messages, keyed by server URL string; persisted for offline launches.
@@ -73,7 +77,7 @@ final class AppModel {
         }
         guard added > 0 else { return 0 }
         try? container.mainContext.save()
-        for subscription in store.subscriptions() where subscription.serverURL == server {
+        for subscription in store.subscriptions().filter({ $0.serverURL == server }) {
             await refresh(subscription)
         }
         await subscriptionsChanged()
@@ -82,6 +86,8 @@ final class AppModel {
     }
 
     func unsubscribe(_ subscription: Subscription) async {
+        guard !subscription.isDeleted else { return }
+        CloudSync.recordRemoval(server: subscription.serverURL, topic: subscription.topic)
         SpotlightIndex.remove(topicKey: subscription.key)
         container.mainContext.delete(subscription)
         try? container.mainContext.save()
@@ -89,16 +95,27 @@ final class AppModel {
     }
 
     func setMuted(_ subscription: Subscription, _ muted: Bool) async {
+        guard !subscription.isDeleted else { return }
         subscription.isMuted = muted
         try? container.mainContext.save()
         await subscriptionsChanged()
     }
 
-    func removeServer(_ server: URL) async {
-        store.subscriptions().filter { $0.serverURL == server }.forEach(container.mainContext.delete)
+    /// Removes a server and its topics. `announce` records the removal for iCloud sync; removals that arrived
+    /// from another device are not announced again.
+    func removeServer(_ server: URL, announce: Bool = true) async {
+        let topics = store.subscriptions().filter { $0.serverURL == server }
+        if let selected = router.selectedTopicKey, topics.contains(where: { $0.key == selected }) {
+            router.topicPath = []
+        }
+        if announce {
+            CloudSync.recordRemoval(server: server, topic: nil)
+            topics.forEach { CloudSync.recordRemoval(server: server, topic: $0.topic) }
+        }
+        topics.forEach(container.mainContext.delete)
         try? container.mainContext.save()
         await push.unregister(from: server, directory: servers)
-        servers.remove(server)
+        servers.remove(server, everywhere: announce)
         await subscriptionsChanged()
     }
 
@@ -125,6 +142,10 @@ final class AppModel {
         lastError = nil
         for subscription in store.subscriptions() {
             await refresh(subscription)
+        }
+        // A synced server can arrive before its credential, so a failed registration retries on later refreshes
+        if push.status.values.contains(where: { if case .failed = $0 { true } else { false } }) {
+            await registerForPush()
         }
         await publish()
     }
@@ -155,12 +176,16 @@ final class AppModel {
 
     @discardableResult
     func refresh(_ subscription: Subscription, full: Bool = false) async -> [Message] {
+        // Sync can delete topics while a refresh loop awaits earlier ones
+        guard !subscription.isDeleted else { return [] }
         do {
             let since = full ? nil : subscription.lastMessageID
             let messages = try await servers.client(for: subscription.serverURL).poll(topic: subscription.topic, since: since)
+            // Sync can delete the topic while the poll is in flight
+            guard !subscription.isDeleted else { return [] }
             return store.apply(messages, to: subscription)
         } catch {
-            lastError = "\(subscription.title): \(error.localizedDescription)"
+            if !subscription.isDeleted { lastError = "\(subscription.title): \(error.localizedDescription)" }
             return []
         }
     }
@@ -169,27 +194,63 @@ final class AppModel {
     func receive(_ message: Message, from server: URL) async {
         guard let subscription = store.subscription(baseURL: server, topic: message.topic) else { return }
         guard !store.apply([message], to: subscription).isEmpty else { return }
-        if router.selectedTopicKey == subscription.key {
+        let isOnScreen = router.visibleTopicKey == subscription.key
+        if isOnScreen {
             store.markAllRead(subscription)
         }
+        #if os(macOS)
+        // The Mac has no background refresh, so the stream it keeps open notifies for servers APNs does not
+        // reach; while registration is pending with a token in hand it stays quiet, since APNs may deliver too
+        let pending = push.status[server] == nil && push.token != nil
+        if !isOnScreen, !subscription.isMuted, push.status[server] != .registered, !pending {
+            await cloud.applyReadState()
+            if !subscription.isDeleted, !isRead(message, in: subscription), allowsStreamNotification() {
+                await LocalNotifications.post(message, baseURL: server)
+            }
+        }
+        #endif
         await publish()
     }
+
+    #if os(macOS)
+    @ObservationIgnored private var streamNotificationTimes: [Date] = []
+
+    /// At most five stream notifications a minute, since a stream reconnecting after sleep replays what it missed.
+    private func allowsStreamNotification() -> Bool {
+        let now = Date.now
+        streamNotificationTimes.removeAll { now.timeIntervalSince($0) > 60 }
+        guard streamNotificationTimes.count < 5 else { return false }
+        streamNotificationTimes.append(now)
+        return true
+    }
+    #endif
 
     /// Background refresh: polls every topic and posts local notifications for new messages on topics
     /// whose server does not deliver them through APNs.
     func backgroundRefresh() async -> Bool {
         store.ingestInbox()
         var delivered = false
+        var fresh: [(subscription: Subscription, messages: [Message])] = []
         for subscription in store.subscriptions() {
-            let fresh = await refresh(subscription)
-            guard !fresh.isEmpty, !subscription.isMuted, push.status[subscription.serverURL] != .registered else { continue }
-            for message in fresh.suffix(5) {
+            let messages = await refresh(subscription)
+            guard !messages.isEmpty, !subscription.isDeleted, !subscription.isMuted, push.status[subscription.serverURL] != .registered else { continue }
+            fresh.append((subscription, messages))
+        }
+        // Messages read on another device are not announced here
+        await cloud.applyReadState()
+        for (subscription, messages) in fresh where !subscription.isDeleted {
+            let unread = messages.filter { !isRead($0, in: subscription) }
+            for message in unread.suffix(5) {
                 await LocalNotifications.post(message, baseURL: subscription.serverURL)
             }
-            delivered = true
+            delivered = delivered || !unread.isEmpty
         }
         await publish()
         return delivered
+    }
+
+    private func isRead(_ message: Message, in subscription: Subscription) -> Bool {
+        store.message(key: StoredMessage.key(subscription: subscription, sequenceID: message.effectiveSequenceID))?.isRead ?? false
     }
 
     func setLiveUpdates(active: Bool) {
@@ -214,6 +275,19 @@ final class AppModel {
         await publish()
     }
 
+    /// Marks a message opened on its own read and removes its notification.
+    func markRead(_ stored: StoredMessage) async {
+        guard !stored.isDeleted, !stored.isRead, let message = stored.message, let threadKey = stored.subscription?.key else { return }
+        store.markRead(key: stored.key)
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications().filter { notification in
+            notification.request.content.threadIdentifier == threadKey
+                && PushPayload(userInfo: notification.request.content.userInfo)?.message.effectiveSequenceID == message.effectiveSequenceID
+        }
+        center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier))
+        await publish()
+    }
+
     func markAllRead() async {
         for subscription in store.subscriptions() where subscription.unreadCount > 0 {
             await markRead(subscription)
@@ -222,18 +296,21 @@ final class AppModel {
     }
 
     func markRead(_ subscription: Subscription) async {
+        guard !subscription.isDeleted else { return }
         store.markAllRead(subscription)
+        let key = subscription.key
         let center = UNUserNotificationCenter.current()
-        let delivered = await center.deliveredNotifications().filter { $0.request.content.threadIdentifier == subscription.key }
+        let delivered = await center.deliveredNotifications().filter { $0.request.content.threadIdentifier == key }
         center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier))
         await publish()
     }
 
-    /// Updates the badge, the widgets' snapshot and the watch.
+    /// Applies and uploads synced read state, then updates the badge, the widgets' snapshot and the watch.
     func publish() async {
-        let subscriptions = store.subscriptions()
-        let unread = subscriptions.reduce(0) { $0 + $1.unreadCount }
+        await cloud.applyReadState()
+        let unread = store.subscriptions().reduce(0) { $0 + $1.unreadCount }
         try? await UNUserNotificationCenter.current().setBadgeCount(unread)
+        let subscriptions = store.subscriptions().filter { !$0.isDeleted }
 
         let entries = subscriptions.flatMap { subscription in
             subscription.messages.compactMap { stored in
@@ -245,16 +322,34 @@ final class AppModel {
         let snapshot = RecentSnapshot(entries: entries, unreadCount: unread)
         try? snapshot.save()
         WidgetCenter.shared.reloadAllTimelines()
+        cloud.upload()
+        cloud.uploadReadState()
 
+        #if os(iOS)
         let configuration = WatchConfiguration(
             servers: servers.servers.map { WatchConfiguration.Server(url: $0, credential: servers.credential(for: $0)) },
             topics: subscriptions.map { WatchConfiguration.Topic(baseURL: $0.serverURL, topic: $0.topic, title: $0.title, symbol: $0.symbol, tint: $0.tint.rawValue) }
         )
         watch.send(configuration: configuration, snapshot: snapshot)
+        #endif
+    }
+
+    /// Starts iCloud syncing of credentials, servers, topics and read state.
+    func startSync() {
+        #if DEBUG
+        // Seeded runs load demo servers and topics, which must not reach the real iCloud state
+        if DebugSeed.holdsDemoData {
+            Logger(subsystem: "me.4vr.alai", category: "CloudSync").notice("iCloud sync is off: this device holds demo data; launch with -resetState YES to clear it")
+            return
+        }
+        #endif
+        servers.syncCredentials()
+        cloud.isEnabled = true
+        cloud.start()
     }
 
     /// Asked after content is loaded, since the system prompt blocks until answered.
-    private func requestNotificationPermission() async {
+    func requestNotificationPermission() async {
         #if DEBUG
         // Seeded simulator runs are for screenshots; the prompt would cover them
         if UserDefaults.standard.string(forKey: "seedServer") != nil { return }

@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     iOS: "26.0"
     watchOS: "26.0"
+    macOS: "26.0"
   createIntermediateGroups: true
   groupSortPosition: top
 
@@ -13,7 +14,7 @@ settings:
     DEVELOPMENT_TEAM: 2NDDPG5773
     CODE_SIGN_STYLE: Automatic
     SWIFT_VERSION: "6.0"
-    MARKETING_VERSION: "1.2"
+    MARKETING_VERSION: "1.3"
     CURRENT_PROJECT_VERSION: "1"
     APP_BUNDLE_ID: me.4vr.alai
     APP_GROUP: group.me.4vr.alai
@@ -75,6 +76,8 @@ targets:
         aps-environment: $(APS_ENVIRONMENT)
         com.apple.security.application-groups: [$(APP_GROUP)]
         com.apple.developer.usernotifications.time-sensitive: true
+        # Shared by the iOS and macOS apps, so both read the same synced servers and topics
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(APP_BUNDLE_ID)
 
   NotificationService:
     type: app-extension
@@ -177,6 +180,75 @@ targets:
       properties:
         com.apple.security.application-groups: [$(APP_GROUP)]
 
+  AlaiMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+        excludes: [AlaiApp.swift, AppDelegate.swift, Info.plist, Alai.entitlements, Services/QuickActions.swift, Services/BackgroundRefresh.swift, Services/WatchBridge.swift]
+      - Mac/App
+    dependencies:
+      - package: NtfyKit
+      - target: MacNotificationService
+    settings:
+      base:
+        # Same bundle ID as the iOS app: one App Store record (universal purchase) and one APNs topic
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PRODUCT_NAME: Alai
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Mac/App/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDisplayName: Alai
+        LSApplicationCategoryType: public.app-category.utilities
+        ITSAppUsesNonExemptEncryption: false
+        NtfyAppGroup: $(APP_GROUP)
+        NtfyPushEnvironment: $(PUSH_ENVIRONMENT)
+        CFBundleURLTypes:
+          - CFBundleURLName: $(APP_BUNDLE_ID)
+            CFBundleURLSchemes: [alai]
+    entitlements:
+      path: Mac/App/AlaiMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.developer.aps-environment: $(APS_ENVIRONMENT)
+        com.apple.security.application-groups: [$(APP_GROUP)]
+        com.apple.developer.usernotifications.time-sensitive: true
+        com.apple.developer.ubiquity-kvstore-identifier: $(TeamIdentifierPrefix)$(APP_BUNDLE_ID)
+
+  MacNotificationService:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: NotificationService
+        excludes: [Info.plist, NotificationService.entitlements]
+    dependencies:
+      - package: NtfyKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).NotificationService
+        ENABLE_HARDENED_RUNTIME: YES
+    info:
+      path: Mac/NotificationService/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleDisplayName: Alai Notifications
+        NtfyAppGroup: $(APP_GROUP)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
+    entitlements:
+      path: Mac/NotificationService/MacNotificationService.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.application-groups: [$(APP_GROUP)]
+
 schemes:
   Alai:
     build:
@@ -185,3 +257,7 @@ schemes:
     test:
       targets:
         - package: NtfyKit/NtfyKitTests
+  AlaiMac:
+    build:
+      targets:
+        AlaiMac: all

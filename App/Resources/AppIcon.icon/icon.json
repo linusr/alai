@@ -1,182 +1,180 @@
 {
-  "fill-specializations" : [
+  "fill-specializations": [
     {
-      "value" : {
-        "linear-gradient" : [
+      "value": {
+        "linear-gradient": [
           "srgb:0.37647,0.64706,0.98039,1.00000",
           "srgb:0.11765,0.22745,0.54118,1.00000"
         ],
-        "orientation" : {
-          "start" : {
-            "x" : 0.20000000000000001,
-            "y" : 0
+        "orientation": {
+          "start": {
+            "x": 0.2,
+            "y": 0
           },
-          "stop" : {
-            "x" : 0.5,
-            "y" : 1
+          "stop": {
+            "x": 0.5,
+            "y": 1
           }
         }
       }
     },
     {
-      "appearance" : "dark",
-      "value" : {
-        "linear-gradient" : [
+      "appearance": "dark",
+      "value": {
+        "linear-gradient": [
           "srgb:0.06667,0.10980,0.20000,1.00000",
           "srgb:0.02353,0.03922,0.07843,1.00000"
         ],
-        "orientation" : {
-          "start" : {
-            "x" : 0.5,
-            "y" : 0
+        "orientation": {
+          "start": {
+            "x": 0.5,
+            "y": 0
           },
-          "stop" : {
-            "x" : 0.5,
-            "y" : 1
+          "stop": {
+            "x": 0.5,
+            "y": 1
           }
         }
       }
     }
   ],
-  "groups" : [
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              "value": {
+                "solid": "srgb:0.85882,0.91765,0.99608,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.37647,0.64706,0.98039,1.00000"
               }
             }
           ],
-          "image-name" : "Wave Front.svg",
-          "name" : "Wave Front",
-          "opacity" : 1
+          "image-name": "Wave Front.svg",
+          "name": "Wave Front",
+          "opacity": 1
         },
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              "value": {
+                "solid": "srgb:0.85882,0.91765,0.99608,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.37647,0.64706,0.98039,1.00000"
               }
             }
           ],
-          "image-name" : "Wave Middle.svg",
-          "name" : "Wave Middle",
-          "opacity" : 0.59999999999999998
+          "image-name": "Wave Middle.svg",
+          "name": "Wave Middle",
+          "opacity": 0.6
         },
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:0.85882,0.91765,0.99608,1.00000"
+              "value": {
+                "solid": "srgb:0.85882,0.91765,0.99608,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.37647,0.64706,0.98039,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.37647,0.64706,0.98039,1.00000"
               }
             }
           ],
-          "image-name" : "Wave Back.svg",
-          "name" : "Wave Back",
-          "opacity" : 0.34999999999999998
+          "image-name": "Wave Back.svg",
+          "name": "Wave Back",
+          "opacity": 0.35
         }
       ],
-      "name" : "Waves",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "name": "Waves",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
       },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.29999999999999999
+      "translucency": {
+        "enabled": true,
+        "value": 0.3
       }
     },
     {
-      "layers" : [
+      "layers": [
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.57647,0.77255,0.99216,1.00000"
               }
             }
           ],
-          "image-name" : "Sun.svg",
-          "name" : "Sun",
-          "opacity" : 1
+          "image-name": "Sun.svg",
+          "name": "Sun",
+          "opacity": 1
         },
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.57647,0.77255,0.99216,1.00000"
               }
             }
           ],
-          "image-name" : "Halo Inner.svg",
-          "name" : "Halo Inner",
-          "opacity" : 0.16
+          "image-name": "Halo Inner.svg",
+          "name": "Halo Inner",
+          "opacity": 0.16
         },
         {
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "srgb:0.57647,0.77255,0.99216,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.57647,0.77255,0.99216,1.00000"
               }
             }
           ],
-          "image-name" : "Halo Outer.svg",
-          "name" : "Halo Outer",
-          "opacity" : 0.10000000000000001
+          "image-name": "Halo Outer.svg",
+          "name": "Halo Outer",
+          "opacity": 0.1
         }
       ],
-      "name" : "Sun",
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "name": "Sun",
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
       },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.20000000000000001
+      "translucency": {
+        "enabled": true,
+        "value": 0.2
       }
     }
   ],
-  "supported-platforms" : {
-    "squares" : [
-      "iOS"
-    ]
+  "supported-platforms": {
+    "squares": "shared"
   }
 }

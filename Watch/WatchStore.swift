@@ -42,7 +42,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
         lastError = nil
         var merged = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for topic in configuration.topics {
-            let client = NtfyClient(baseURL: topic.baseURL, credential: CredentialStore(accessGroup: nil).credential(for: topic.baseURL))
+            let client = NtfyClient(baseURL: topic.baseURL, credential: CredentialStore(accessGroup: nil, synchronizable: false).credential(for: topic.baseURL))
             do {
                 for message in try await client.poll(topic: topic.topic, since: "24h") {
                     let entry = RecentSnapshot.Entry(topicKey: topic.key, topicTitle: topic.title, symbol: topic.symbol, tint: topic.tint, message: message)
@@ -64,7 +64,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
     }
 
     private func store(_ configuration: WatchConfiguration) {
-        let credentials = CredentialStore(accessGroup: nil)
+        let credentials = CredentialStore(accessGroup: nil, synchronizable: false)
         for server in configuration.servers {
             try? credentials.save(server.credential, for: server.url)
         }
