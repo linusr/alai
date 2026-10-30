@@ -221,10 +221,18 @@ final class CloudSync {
         guard !pendingReadThrough.isEmpty, readThroughFlush == nil else { return }
         readThroughFlush = Task {
             try? await Task.sleep(for: .seconds(5))
-            for (key, time) in pendingReadThrough { store.set(time, forKey: key) }
-            pendingReadThrough = [:]
-            readThroughFlush = nil
+            flushReadThrough()
         }
+    }
+
+    /// Writes waiting read-through times now; called on the timer and when the app quits.
+    func flushReadThrough() {
+        readThroughFlush?.cancel()
+        readThroughFlush = nil
+        guard !pendingReadThrough.isEmpty else { return }
+        for (key, time) in pendingReadThrough { store.set(time, forKey: key) }
+        pendingReadThrough = [:]
+        store.synchronize()
     }
 
     /// A read-through time beyond this was written from a wrong clock and would mark every later message

@@ -37,6 +37,10 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        model.cloud.flushReadThrough()
+    }
+
     func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         model.push.update(token: deviceToken)
         Task { await model.registerForPush() }
