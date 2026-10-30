@@ -8,9 +8,15 @@ struct MacRootView: View {
     @Environment(ServerDirectory.self) private var servers
     @Environment(Router.self) private var router
     @Environment(\.openWindow) private var openWindow
+    #if DEBUG
+    @Environment(\.openSettings) private var openSettings
+    #endif
     @Query(sort: \Subscription.createdAt) private var subscriptions: [Subscription]
     @State private var query = ""
     @State private var pendingUnsubscribe: Subscription?
+    #if DEBUG
+    @State private var didApplyArguments = false
+    #endif
 
     private var sorted: [Subscription] {
         // A query can still hold models deleted in the same update, such as when a server is removed
@@ -59,6 +65,14 @@ struct MacRootView: View {
                 NavigationStack { detail }
             }
             .searchable(text: $query, placement: .sidebar, prompt: "Messages")
+            #if DEBUG
+            .onAppear {
+                guard !didApplyArguments else { return }
+                didApplyArguments = true
+                if let seeded = UserDefaults.standard.string(forKey: "searchQuery") { query = seeded }
+                if UserDefaults.standard.bool(forKey: "openSettings") { openSettings() }
+            }
+            #endif
             .sheet(item: Binding(
                 get: { router.openedMessageKey.map(OpenedMessageKey.init) },
                 set: { router.openedMessageKey = $0?.id }

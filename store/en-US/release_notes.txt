@@ -1,2 +1,3 @@
-• A new app icon built for Liquid Glass, with proper Dark, Clear and Tinted styles.
-• Browse and subscribe to a server's existing topics straight from the + button.
+• Alai is now on Mac, with a sidebar of your topics, menu commands and keyboard shortcuts.
+• Your servers, sign-ins, topics and read status sync between iPhone and Mac through iCloud.
+• The app badge updates as soon as you open a message.

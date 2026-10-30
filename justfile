@@ -78,6 +78,10 @@ testflight-mac: generate
 listing build="":
     uv run -q store/asc.py listing {{ build }}
 
+# Push the macOS store listing; with a Mac build number, also attach that build
+listing-mac build="":
+    uv run -q store/asc.py listing --mac {{ build }}
+
 # Email a TestFlight invitation, adding the tester to the internal group first if needed
 testflight-invite email="linusr@me.com":
     uv run -q store/asc.py invite {{ email }}
@@ -86,7 +90,11 @@ testflight-invite email="linusr@me.com":
 submit release="MANUAL":
     uv run -q store/asc.py submit {{ release }}
 
-# Publish an approved version that is waiting for a manual release
+# Submit the macOS version for App Review; release is MANUAL or AFTER_APPROVAL, as for submit
+submit-mac release="MANUAL":
+    uv run -q store/asc.py submit --mac {{ release }}
+
+# Publish every approved version that is waiting for a manual release
 release:
     uv run -q store/asc.py release
 

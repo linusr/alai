@@ -1,0 +1,13 @@
+Alai is a client for self-hosted notification servers. To review it, use the demo server below.
+
+1. Launch the app and click "Connect Server".
+2. Enter the server address alerts.4vr.me. Under "Sign In", choose "Username" and enter the demo username and password provided with this submission, then click Connect.
+3. The demo account is subscribed to three topics (demo-server, demo-backups, demo-home), which appear in the sidebar automatically after signing in. Sample notifications are posted to them every day.
+4. To send yourself a notification, select a topic, click the compose button (square with pencil), write a message and send it. It appears in the topic within a second; while another topic is selected or the app is in the background, it also shows as a notification banner.
+   Alternatively, from any computer: curl -u USERNAME:PASSWORD -d "Hello from review" https://alerts.4vr.me/demo-home
+5. Calendar in the sidebar shows the day's notifications on an hour-by-hour timeline. The search field above the sidebar searches all messages.
+6. Settings (Alai > Settings…) lists the connected servers and notification options.
+
+Signing in on an iPhone with the same Apple Account brings the server and topics to the Mac through iCloud; this is optional and not needed for review.
+
+The app does not collect any data. It communicates only with servers the user adds.

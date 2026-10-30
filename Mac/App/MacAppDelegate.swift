@@ -1,5 +1,6 @@
 import AppKit
 import UserNotifications
+import OSLog
 
 @MainActor
 final class MacAppDelegate: NSObject, NSApplicationDelegate {
@@ -12,6 +13,9 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        #if DEBUG
+        applyScreenshotArguments()
+        #endif
         model.startSync()
         NSApplication.shared.registerForRemoteNotifications()
         // The live stream stays open while the app runs, in front or behind other apps
@@ -24,6 +28,42 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var lastRefresh = Date.distantPast
+
+    #if DEBUG
+    /// Store screenshot runs: `-appearance light|dark`, `-windowSize 1200x740` (points), which also brings the app
+    /// to the front, and `-openSettings YES`.
+    private func applyScreenshotArguments() {
+        let defaults = UserDefaults.standard
+        let log = Logger(subsystem: "me.4vr.alai", category: "DebugSeed")
+        switch defaults.string(forKey: "appearance") {
+        case "light": NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
+        case nil: break
+        case let other?: log.error("Unknown -appearance \(other); use light or dark")
+        }
+        guard let value = defaults.string(forKey: "windowSize") else { return }
+        let size = value.split(separator: "x").compactMap { Double($0) }
+        guard size.count == 2 else { return log.error("Unreadable -windowSize \(value); use WIDTHxHEIGHT") }
+        let wanted = NSSize(width: size[0], height: size[1])
+        Task {
+            // The SwiftUI window appears some time after launch finishes
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let window = NSApp.windows.first(where: { $0.identifier?.rawValue.hasPrefix("main") == true }) else { continue }
+                window.setContentSize(wanted)
+                window.center()
+                NSApp.activate()
+                // AppKit keeps windows inside the visible screen, which can be smaller than the store sizes
+                let actual = window.contentRect(forFrameRect: window.frame).size
+                if actual != wanted {
+                    log.error("Window is \(actual.debugDescription), not \(value): the screen is too small")
+                }
+                return
+            }
+            log.error("No main window to resize")
+        }
+    }
+    #endif
 
     /// The open stream already delivers new messages, so switching back to the app polls at most once a minute.
     func applicationDidBecomeActive(_ notification: Notification) {

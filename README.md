@@ -138,10 +138,14 @@ xcodebuild -project Alai.xcodeproj -scheme Alai -destination 'generic/platform=i
 Debug builds accept launch arguments that add a server and topics without going through onboarding:
 
 ```
--seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts
+-seedServer http://localhost:8080 -seedUser ben -seedPassword pw -seedTopics backups,alerts=Alerts
 -openTopic alerts
 -openScreen browse|tokens|devicekey|addtopic
 ```
+
+`App/Services/DebugSeed.swift` lists the rest, such as `-resetState YES`. The Mac app also takes
+`-appearance light|dark`, `-windowSize 1200x740` and `-openSettings YES` for store screenshots; the window
+captures are then placed on a 2880×1800 canvas, a size App Store Connect accepts for Mac.
 
 The watch app accepts the same `-seed*` arguments. Simulator builds signed without a team are not matched as
 WatchConnectivity counterparts, so the phone cannot configure the watch there.

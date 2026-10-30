@@ -72,7 +72,11 @@ class Client:
 
 STORE = Path(__file__).parent
 LOCALE = "en-US"
-SCREENSHOT_SETS = {"iphone-6.9": "APP_IPHONE_67", "watch": "APP_WATCH_SERIES_10"}
+# Each platform has its own App Store version, screenshots, review notes and review submission
+PLATFORMS = {
+    "IOS": {"screenshots": {"iphone-6.9": "APP_IPHONE_67", "watch": "APP_WATCH_SERIES_10"}, "notes": "review_notes.txt"},
+    "MAC_OS": {"screenshots": {"mac": "APP_DESKTOP"}, "notes": "review_notes_mac.txt"},
+}
 
 
 def read(name):
@@ -88,17 +92,20 @@ def marketing_version():
     return re.search(r'MARKETING_VERSION: "([^"]+)"', project).group(1)
 
 
-def editable_version(client, app):
-    """The version being prepared, created from project.yml's MARKETING_VERSION when there is none."""
-    versions = client.get(f"/apps/{app['id']}/appStoreVersions", **{"filter[appStoreState]": "PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED"})["data"]
+def editable_version(client, app, platform):
+    """The platform's version being prepared, created from project.yml's MARKETING_VERSION when there is none."""
+    versions = client.get(f"/apps/{app['id']}/appStoreVersions", **{
+        "filter[platform]": platform,
+        "filter[appStoreState]": "PREPARE_FOR_SUBMISSION,DEVELOPER_REJECTED,REJECTED,METADATA_REJECTED",
+    })["data"]
     if versions:
         return versions[0]
     version = client.post("/appStoreVersions", {
         "type": "appStoreVersions",
-        "attributes": {"platform": "IOS", "versionString": marketing_version()},
+        "attributes": {"platform": platform, "versionString": marketing_version()},
         "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
     })["data"]
-    print(f"created version {version['attributes']['versionString']}")
+    print(f"created {platform} version {version['attributes']['versionString']}")
     return version
 
 
@@ -132,7 +139,7 @@ def push_age_rating(client, info, answers):
     print("age rating declaration")
 
 
-def push_version(client, app, version):
+def push_version(client, app, version, platform):
     client.patch(f"/appStoreVersions/{version['id']}", {
         "type": "appStoreVersions", "id": version["id"],
         "attributes": {"copyright": read("copyright.txt")},
@@ -145,8 +152,8 @@ def push_version(client, app, version):
         "supportUrl": urls()["support_url"],
         "marketingUrl": urls()["marketing_url"],
     }
-    # App Store Connect rejects What's New on an app's first version
-    if len(client.get(f"/apps/{app['id']}/appStoreVersions")["data"]) > 1:
+    # App Store Connect rejects What's New on a platform's first version
+    if len(client.get(f"/apps/{app['id']}/appStoreVersions", **{"filter[platform]": platform})["data"]) > 1:
         attributes["whatsNew"] = read("release_notes.txt")
     client.patch(f"/appStoreVersionLocalizations/{localization['id']}", {"type": "appStoreVersionLocalizations", "id": localization["id"], "attributes": attributes})
     print(f"version: copyright, description, keywords, promotional text, URLs{', what\'s new' if 'whatsNew' in attributes else ''}")
@@ -171,9 +178,9 @@ def upload_screenshot(client, set_id, path):
     })
 
 
-def push_screenshots(client, localization):
+def push_screenshots(client, localization, platform):
     existing = {s["attributes"]["screenshotDisplayType"]: s for s in client.get(f"/appStoreVersionLocalizations/{localization['id']}/appScreenshotSets")["data"]}
-    for folder, display_type in SCREENSHOT_SETS.items():
+    for folder, display_type in PLATFORMS[platform]["screenshots"].items():
         files = sorted((STORE / "screenshots" / folder).glob("*.png"))
         if not files:
             continue
@@ -197,7 +204,7 @@ def push_screenshots(client, localization):
         print(f"screenshots: {len(files)} × {display_type}")
 
 
-def push_review_details(client, version):
+def push_review_details(client, version, platform):
     contact_file = Path.home() / ".appstoreconnect" / "alai-review.env"
     if not contact_file.exists():
         print(f"review details: skipped, {contact_file} not found")
@@ -207,7 +214,7 @@ def push_review_details(client, version):
         "contactFirstName": contact["first_name"], "contactLastName": contact["last_name"],
         "contactPhone": contact["phone"], "contactEmail": contact["email"],
         "demoAccountRequired": True, "demoAccountName": contact["demo_user"], "demoAccountPassword": contact["demo_password"],
-        "notes": (STORE / "review_notes.txt").read_text().strip(),
+        "notes": (STORE / PLATFORMS[platform]["notes"]).read_text().strip(),
     }
     current = client.get(f"/appStoreVersions/{version['id']}/appStoreReviewDetail").get("data")
     if current:
@@ -220,10 +227,10 @@ def push_review_details(client, version):
     print("review details: contact, demo account, notes")
 
 
-def attach_build(client, app, version, build_number):
-    builds = client.get("/builds", **{"filter[app]": app["id"], "filter[version]": build_number})["data"]
+def attach_build(client, app, version, build_number, platform):
+    builds = client.get("/builds", **{"filter[app]": app["id"], "filter[version]": build_number, "filter[preReleaseVersion.platform]": platform})["data"]
     if not builds or builds[0]["attributes"]["processingState"] != "VALID":
-        sys.exit(f"Build {build_number} is not processed yet")
+        sys.exit(f"{platform} build {build_number} is not processed yet")
     client.request("PATCH", f"/appStoreVersions/{version['id']}/relationships/build", json={"data": {"type": "builds", "id": builds[0]["id"]}})
     print(f"build {build_number} attached to version {version['attributes']['versionString']}")
 
@@ -245,18 +252,18 @@ AGE_RATING = {
 }
 
 
-def listing(build_number=None):
-    """Pushes the store listing; with a build number, also attaches that build to the version."""
+def listing(platform, build_number=None):
+    """Pushes the platform's store listing; with a build number, also attaches that build to the version."""
     client = Client()
     app = client.app()
-    version = editable_version(client, app)
+    version = editable_version(client, app, platform)
     info = push_app_info(client, app)
     push_age_rating(client, info, AGE_RATING)
-    localization = push_version(client, app, version)
-    push_screenshots(client, localization)
-    push_review_details(client, version)
+    localization = push_version(client, app, version, platform)
+    push_screenshots(client, localization, platform)
+    push_review_details(client, version, platform)
     if build_number:
-        attach_build(client, app, version, build_number)
+        attach_build(client, app, version, build_number, platform)
 
 
 def invite(email):
@@ -287,21 +294,21 @@ def invite(email):
     print(f"TestFlight invitation sent to {email} (group {group['attributes']['name']})")
 
 
-def submit(release="MANUAL"):
-    """Submits the editable version for App Review. MANUAL waits for a Release click after approval."""
+def submit(platform, release="MANUAL"):
+    """Submits the platform's editable version for App Review. MANUAL waits for a Release click after approval."""
     client = Client()
     app = client.app()
-    version = editable_version(client, app)
+    version = editable_version(client, app, platform)
     if not client.get(f"/appStoreVersions/{version['id']}/build").get("data"):
-        sys.exit("Attach a build first: just listing <build>")
+        sys.exit(f"Attach a {platform} build first: just listing{'-mac' if platform == 'MAC_OS' else ''} <build>")
     client.patch(f"/appStoreVersions/{version['id']}", {
         "type": "appStoreVersions", "id": version["id"], "attributes": {"releaseType": release},
     })
     # A failed attempt leaves an unsubmitted draft behind; reuse it rather than piling up new ones
-    drafts = client.get(f"/apps/{app['id']}/reviewSubmissions", **{"filter[state]": "READY_FOR_REVIEW", "filter[platform]": "IOS"})["data"]
+    drafts = client.get(f"/apps/{app['id']}/reviewSubmissions", **{"filter[state]": "READY_FOR_REVIEW", "filter[platform]": platform})["data"]
     submission = drafts[0] if drafts else client.post("/reviewSubmissions", {
         "type": "reviewSubmissions",
-        "attributes": {"platform": "IOS"},
+        "attributes": {"platform": platform},
         "relationships": {"app": {"data": {"type": "apps", "id": app["id"]}}},
     })["data"]
     items = client.get(f"/reviewSubmissions/{submission['id']}/items")["data"]
@@ -316,22 +323,22 @@ def submit(release="MANUAL"):
     result = client.patch(f"/reviewSubmissions/{submission['id']}", {
         "type": "reviewSubmissions", "id": submission["id"], "attributes": {"submitted": True},
     })["data"]
-    print(f"Version {version['attributes']['versionString']} submitted for review ({result['attributes']['state']}), release {release.lower()}")
+    print(f"{platform} version {version['attributes']['versionString']} submitted for review ({result['attributes']['state']}), release {release.lower()}")
 
 
 def release():
-    """Publishes an approved version that is waiting for a manual release."""
+    """Publishes every approved version, on any platform, that is waiting for a manual release."""
     client = Client()
     app = client.app()
     versions = client.get(f"/apps/{app['id']}/appStoreVersions", **{"filter[appStoreState]": "PENDING_DEVELOPER_RELEASE"})["data"]
     if not versions:
         sys.exit("No approved version is waiting for release")
-    version = versions[0]
-    client.post("/appStoreVersionReleaseRequests", {
-        "type": "appStoreVersionReleaseRequests",
-        "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}}},
-    })
-    print(f"Version {version['attributes']['versionString']} released")
+    for version in versions:
+        client.post("/appStoreVersionReleaseRequests", {
+            "type": "appStoreVersionReleaseRequests",
+            "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version["id"]}}},
+        })
+        print(f"{version['attributes']['platform']} version {version['attributes']['versionString']} released")
 
 
 def status():
@@ -340,21 +347,27 @@ def status():
     print(app["id"], app["attributes"]["name"], app["attributes"]["bundleId"])
     versions = client.get(f"/apps/{app['id']}/appStoreVersions")["data"]
     for version in versions:
-        print("version", version["attributes"]["versionString"], version["attributes"]["appStoreState"], version["id"])
+        print("version", version["attributes"]["platform"], version["attributes"]["versionString"], version["attributes"]["appStoreState"], version["id"])
     builds = client.get("/builds", **{"filter[app]": app["id"], "sort": "-uploadedDate", "limit": 5})["data"]
     for build in builds:
         print("build", build["attributes"]["version"], build["attributes"]["processingState"])
 
 
 if __name__ == "__main__":
+    # listing and submit take --mac for the macOS version
+    mac = "--mac" in sys.argv
+    sys.argv = [a for a in sys.argv if a != "--mac"]
     command = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if mac and command not in ("listing", "submit"):
+        sys.exit(f"--mac applies only to listing and submit, not {command}")
+    platform = "MAC_OS" if mac else "IOS"
     if command == "listing":
-        listing(sys.argv[2] if len(sys.argv) > 2 else None)
+        listing(platform, sys.argv[2] if len(sys.argv) > 2 else None)
     elif command == "invite":
         invite(sys.argv[2])
     elif command == "release":
         release()
     elif command == "submit":
-        submit(sys.argv[2] if len(sys.argv) > 2 else "MANUAL")
+        submit(platform, sys.argv[2] if len(sys.argv) > 2 else "MANUAL")
     else:
         status()
