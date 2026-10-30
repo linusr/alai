@@ -16,7 +16,7 @@ final class Router {
     var selectedTopicKey: String? { topicPath.last }
 
     /// The topic the user is looking at: selected, with the app in front. A Mac app keeps its selection
-    /// with the window closed or behind other apps.
+    /// behind other apps.
     var visibleTopicKey: String? {
         #if os(macOS)
         guard NSApplication.shared.isActive, let window = NSApplication.shared.mainWindow, window.isVisible,

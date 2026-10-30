@@ -26,7 +26,7 @@ other ntfy servers work through the live stream and background refresh.
 - Home and Lock Screen widgets with recent notifications
 - Apple Watch app that fetches messages itself, with complications for the latest message and unread count
 - Mac app with a sidebar of topics, menu commands and keyboard shortcuts; it is the same App Store app as the iPhone
-  app (universal purchase) and keeps receiving messages with its window closed, as long as the app is running
+  app (universal purchase); closing its window quits it, and push notifications still arrive
 - Servers, sign-ins and topics sync between the iPhone and Mac through iCloud: credentials through iCloud Keychain,
   servers and topics (name, icon, color) and each topic's read-through time through iCloud key-value storage;
   muting stays per device. Removing a server or unsubscribing applies to every device on the iCloud account

@@ -14,7 +14,7 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.startSync()
         NSApplication.shared.registerForRemoteNotifications()
-        // A Mac app stays running with its window closed, so it keeps the live stream open throughout
+        // The live stream stays open while the app runs, in front or behind other apps
         model.setLiveUpdates(active: true)
         lastRefresh = .now
         Task {
@@ -32,8 +32,9 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate {
         Task { await model.refreshAll() }
     }
 
+    /// A single-window app quits with its window; APNs notifications still arrive while it is not running.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        false
+        true
     }
 
     func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
