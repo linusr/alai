@@ -275,6 +275,19 @@ final class AppModel {
         await publish()
     }
 
+    /// Marks a message opened on its own read and removes its notification.
+    func markRead(_ stored: StoredMessage) async {
+        guard !stored.isDeleted, !stored.isRead, let message = stored.message, let threadKey = stored.subscription?.key else { return }
+        store.markRead(key: stored.key)
+        let center = UNUserNotificationCenter.current()
+        let delivered = await center.deliveredNotifications().filter { notification in
+            notification.request.content.threadIdentifier == threadKey
+                && PushPayload(userInfo: notification.request.content.userInfo)?.message.effectiveSequenceID == message.effectiveSequenceID
+        }
+        center.removeDeliveredNotifications(withIdentifiers: delivered.map(\.request.identifier))
+        await publish()
+    }
+
     func markAllRead() async {
         for subscription in store.subscriptions() where subscription.unreadCount > 0 {
             await markRead(subscription)

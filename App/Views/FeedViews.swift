@@ -448,6 +448,7 @@ private struct TimelineEntry: View {
 
 struct OpenedMessage: View {
     let stored: StoredMessage
+    @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -468,7 +469,7 @@ struct OpenedMessage: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .onAppear { stored.isRead = true }
+        .task { await model.markRead(stored) }
     }
 }
 
